@@ -26,6 +26,8 @@ Chaque run crée un sous-dossier horodaté :
 
 Note : `responses/` est ignoré par git (outputs générés).
 
+Ces `report.txt` peuvent ensuite servir d’entrée à l’agent `reflex_trader_agent.py`.
+
 ## Contrôle des coûts
 
 Dans `grok_tools_test.py`, les garde-fous principaux sont :

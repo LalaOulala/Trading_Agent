@@ -1,0 +1,23 @@
+Tu dois répondre en **JSON strict** (UTF-8) : pas de markdown, pas de backticks, pas de texte en dehors du JSON.
+
+Schéma attendu :
+{
+  "requested_market_data": [
+    {
+      "symbol": "TICKER",
+      "why": "Pourquoi tu demandes ce prix (1 phrase).",
+      "fields": ["last_trade_price", "1d_change_pct", "5d_change_pct"]
+    }
+  ],
+  "questions": [
+    "Question courte 1",
+    "Question courte 2"
+  ],
+  "conclusion": "Conclusion courte (max ~6 lignes)."
+}
+
+Règles:
+- `requested_market_data` peut être vide si rien n'est nécessaire.
+- `fields` doit contenir des identifiants simples (strings) et rester court (2–4 items).
+- `symbol` doit être un ticker **action US** en MAJUSCULES, sans espace.
+- La conclusion doit finir par: "Info seulement, pas un conseil en investissement."
