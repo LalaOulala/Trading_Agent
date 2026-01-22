@@ -31,4 +31,4 @@ Les scripts de smoke test chargent `.env` depuis la racine du repo.
 
 - Alpaca (read-only): `python alpaca_api_test.py`
 - xAI/Grok: `python grok_api_test.py`
-
+- Conclusion de marché (web_search + x_search): `python grok_tools_test.py` (prompts dans `prompts/`)

@@ -1,0 +1,21 @@
+Sortie attendue : tu dois rendre un rapport court, structuré, daté, en respectant exactement ce format :
+
+Titre : Conclusion de marché actions (périmètre US / S&P 500) — [date + heure locale]
+
+Contexte temporel : Ce rapport couvre les nouvelles et catalyseurs depuis [période choisie], avec un focus sur ce qui a eu un impact potentiel sur les indices, les secteurs et le sentiment de risque.
+
+Synthèse en une minute : Aujourd’hui, le marché a été principalement influencé par [facteur 1], puis par [facteur 2]. Le mécanisme dominant semble être [expliquer en une phrase : pourquoi ce facteur fait bouger les actions]. Le point à surveiller maintenant est [événement imminent / risque].
+
+Faits vérifiés et catalyseurs majeurs : Le premier catalyseur est [fait]. Cela tend à impacter le marché actions parce que [mécanisme simple]. Le deuxième catalyseur est [fait]. Son impact probable passe par [mécanisme]. Si un catalyseur est macro (banque centrale, inflation, emploi), tu rappelles en une phrase le lien typique entre taux, valorisation et actions.
+
+Lecture “micro” (entreprises / secteurs) : Les nouvelles d’entreprises qui comptent aujourd’hui concernent [earnings, guidance, M&A, régulation]. Tu indiques brièvement quels secteurs sont les plus sensibles à ces nouvelles et pourquoi (par exemple : technos sensibles aux taux, énergie sensible au pétrole, financières sensibles à la pente des taux et au crédit).
+
+Signaux chauds observés sur X (à confirmer) : Sur X, on observe [signal]. C’est potentiellement important parce que [raison], mais ce point reste à confirmer par une source plus robuste. Tu n’en fais pas l’axe central tant qu’il n’est pas recoupé.
+
+Ce que ça suggère pour la séance à venir : Le scénario le plus plausible à court terme est [scénario], car [raison]. Le principal risque de surprise est [risque], qui pourrait changer la lecture si [condition]. Ce qu’il faut surveiller très concrètement dans les prochaines heures est [indicateur / annonce / conférence / publication] et pourquoi.
+
+Degré de confiance : Tu qualifies la robustesse de cette conclusion comme [élevé / moyen / faible] et tu expliques en une phrase ce qui rend la lecture solide ou au contraire incertaine.
+
+Sources : Tu listes ici les sources principales qui appuient les points clés, avec liens, en évitant les doublons.
+
+Note : Ce rapport est informatif et ne constitue pas un conseil en investissement.

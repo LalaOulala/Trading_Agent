@@ -14,8 +14,8 @@ Ce dépôt est le point de départ d'un agent de trading piloté par un LLM (pap
 4. Smoke tests:
    - `python alpaca_api_test.py`
    - `python grok_api_test.py`
+   - `python grok_tools_test.py` (conclusion de marché via `web_search` + `x_search`, prompts dans `prompts/`)
 
 ## Documentation
 
 Voir `docs/README.md`.
-

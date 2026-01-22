@@ -34,3 +34,7 @@ htmlcov/
 
 # Logs
 *.log
+
+# Outputs générés
+responses/
+reponse_test.txt
