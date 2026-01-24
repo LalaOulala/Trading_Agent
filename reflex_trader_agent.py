@@ -275,7 +275,7 @@ def _fetch_latest_trades(symbols: list[str]) -> dict[str, dict[str, Any]]:
     Récupère le dernier trade connu pour une liste de tickers (Alpaca Market Data).
 
     Remarque:
-        Importé dynamiquement car `alpaca.data` dépend de `pytz` (à installer).
+        `alpaca.data` dépend de `pytz`. Si indisponible, fallback HTTP (stdlib).
     """
     api_key, api_secret = _get_alpaca_credentials()
     if not api_key or not api_secret:
@@ -283,16 +283,59 @@ def _fetch_latest_trades(symbols: list[str]) -> dict[str, dict[str, Any]]:
             "Impossible de récupérer les prix (credentials Alpaca manquants)."
         )
 
+    feed = os.environ.get("ALPACA_DATA_FEED", "iex").strip() or "iex"
+
     try:
         from alpaca.data.historical import StockHistoricalDataClient
         from alpaca.data.requests import StockLatestTradeRequest
     except Exception as exc:  # pragma: no cover
-        raise RuntimeError(
-            "alpaca.data indisponible. Installe les dépendances (ex: `pip install -r requirements.txt`)."
-        ) from exc
+        import urllib.parse
+        import urllib.request
+
+        url = (
+            "https://data.alpaca.markets/v2/stocks/trades/latest?"
+            + urllib.parse.urlencode(
+                {
+                    "symbols": ",".join(symbols),
+                    "feed": feed,
+                }
+            )
+        )
+        req = urllib.request.Request(
+            url,
+            headers={
+                "APCA-API-KEY-ID": api_key,
+                "APCA-API-SECRET-KEY": api_secret,
+            },
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                payload = resp.read().decode("utf-8")
+        except Exception as http_exc:
+            raise RuntimeError(
+                f"Impossible de récupérer les derniers trades (fallback HTTP): {http_exc}"
+            ) from http_exc
+
+        try:
+            data = json.loads(payload)
+        except Exception as json_exc:
+            raise RuntimeError(
+                "Réponse Market Data invalide (fallback HTTP): JSON non parseable."
+            ) from json_exc
+
+        trades = data.get("trades", {})
+        out: dict[str, dict[str, Any]] = {}
+        for symbol in symbols:
+            item = trades.get(symbol) if isinstance(trades, dict) else None
+            out[symbol] = {
+                "price": item.get("p") if isinstance(item, dict) else None,
+                "timestamp": item.get("t") if isinstance(item, dict) else None,
+            }
+        return out
 
     client = StockHistoricalDataClient(api_key=api_key, secret_key=api_secret)
-    request = StockLatestTradeRequest(symbol_or_symbols=symbols)
+    request = StockLatestTradeRequest(symbol_or_symbols=symbols, feed=feed)
     trades = client.get_stock_latest_trade(request)
 
     out: dict[str, dict[str, Any]] = {}

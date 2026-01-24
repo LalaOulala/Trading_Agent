@@ -1,23 +1,107 @@
-Tu dois répondre en **JSON strict** (UTF-8) : pas de markdown, pas de backticks, pas de texte en dehors du JSON.
+# Prompt 2 — Sortie JSON stricte (Market Data)
 
-Schéma attendu :
+Tu dois produire **UNIQUEMENT** un **JSON valide** (pas de texte autour, pas de markdown, pas de commentaires). Le JSON doit être **parseable** et compatible avec un pipeline de récupération de prix.
+
+## Objectif
+
+À partir de `market_reports[]`, `portfolio_snapshot`, `recent_history`, produire :
+
+* une liste **priorisée** des **données de marché à récupérer** (prix, variations, OHLCV…)
+* des **instructions de range** (lookback) et d’**interval**
+* des instructions **temps réel** (refresh + durée)
+* une **conclusion pédagogique courte** + des **questions**
+
+## JSON STRICT — Schéma à respecter
+
+Le JSON DOIT contenir **au minimum** :
+
+* `requested_market_data` (array)
+* `realtime` (object)
+* `pedagogical_conclusion` (string)
+* `questions` (array)
+
+### Schéma
+
 {
-  "requested_market_data": [
-    {
-      "symbol": "TICKER",
-      "why": "Pourquoi tu demandes ce prix (1 phrase).",
-      "fields": ["last_trade_price", "1d_change_pct", "5d_change_pct"]
-    }
-  ],
-  "questions": [
-    "Question courte 1",
-    "Question courte 2"
-  ],
-  "conclusion": "Conclusion courte (max ~6 lignes)."
+"requested_market_data": [
+{
+"priority": "P0|P1|P2",
+"symbol": "STRING",
+"why": "STRING",
+"fields": ["STRING"],
+"range": {
+"lookback": "STRING",
+"interval": "STRING"
+}
+}
+],
+"realtime": {
+"enabled": true,
+"symbols": ["STRING"],
+"refresh_seconds": 30,
+"duration_minutes": 60,
+"fields": ["last_trade_price"]
+},
+"pedagogical_conclusion": "STRING",
+"questions": ["STRING"],
+"notes": {
+"assumptions": ["STRING"],
+"deprioritized": [
+{
+"item": "STRING",
+"reason": "STRING"
+}
+]
+}
 }
 
-Règles:
-- `requested_market_data` peut être vide si rien n'est nécessaire.
-- `fields` doit contenir des identifiants simples (strings) et rester court (2–4 items).
-- `symbol` doit être un ticker **action US** en MAJUSCULES, sans espace.
-- La conclusion doit finir par: "Info seulement, pas un conseil en investissement."
+## Règles de génération
+
+* **JSON valide** : guillemets doubles partout, aucune virgule finale, aucun texte hors JSON.
+* `requested_market_data` :
+
+  * Trié par priorité (P0 d’abord)
+  * `why` doit être concret (hypothèse → donnée)
+  * `fields` = minimum utile (ex: `last_trade_price`, `1d_change_pct`, `5d_change_pct`, ou `ohlcv` si nécessaire)
+  * `range.lookback` : format court (ex: `"1d"`, `"5d"`, `"20d"`, `"3mo"`, `"1y"`)
+  * `range.interval` : (ex: `"1d"`, `"1h"`, `"5m"`)
+* `realtime` :
+
+  * `enabled` seulement si utile (earnings/news/validation intraday)
+  * `symbols` : liste réduite (2–8 max)
+* `pedagogical_conclusion` :
+
+  * 8–12 lignes max, style pédagogique
+  * Doit couvrir : hypothèses clés, justification des symboles/timeframes/champs, ce qui est écarté, incertitudes à trancher
+* `questions` : 2–6 questions actionnables
+* `notes` :
+
+  * `assumptions` = hypothèses issues des reports
+  * `deprioritized` = items écartés + raison
+
+## Mini-exemple (structure uniquement)
+
+{
+"requested_market_data": [
+{
+"priority": "P0",
+"symbol": "SPY",
+"why": "...",
+"fields": ["last_trade_price", "1d_change_pct", "5d_change_pct"],
+"range": {"lookback": "10d", "interval": "1d"}
+}
+],
+"realtime": {
+"enabled": true,
+"symbols": ["SPY"],
+"refresh_seconds": 30,
+"duration_minutes": 60,
+"fields": ["last_trade_price"]
+},
+"pedagogical_conclusion": "...",
+"questions": ["..."],
+"notes": {
+"assumptions": ["..."],
+"deprioritized": [{"item": "...", "reason": "..."}]
+}
+}
