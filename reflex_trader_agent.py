@@ -171,9 +171,20 @@ def _load_portfolio_snapshot() -> dict[str, Any]:
         }
 
     paper = _get_paper_flag()
-    client = TradingClient(api_key=api_key, secret_key=api_secret, paper=paper)
-    account = client.get_account()
-    positions = client.get_all_positions()
+    try:
+        client = TradingClient(api_key=api_key, secret_key=api_secret, paper=paper)
+        account = client.get_account()
+        positions = client.get_all_positions()
+    except Exception as exc:
+        return {
+            "source": "alpaca",
+            "available": False,
+            "paper": paper,
+            "reason": (
+                "Snapshot Alpaca indisponible "
+                f"({type(exc).__name__}: {exc})."
+            ),
+        }
 
     def _pos_to_dict(pos: Any) -> dict[str, Any]:
         return {
@@ -238,16 +249,81 @@ def _load_latest_reports(responses_dir: Path, count: int) -> list[Report]:
 
 def _extract_json_object(text: str) -> dict[str, Any]:
     """
-    Extrait et parse le premier objet JSON plausible depuis `text`.
+    Extrait et parse le premier objet JSON valide depuis `text`.
 
-    Utile quand le modèle ajoute accidentellement du texte autour du JSON.
+    Comportement:
+        - Tolère du texte avant/après le JSON.
+        - Ignore les blocs `{...}` non-JSON.
+        - Retourne le premier objet JSON (`dict`) parseable.
     """
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ValueError("Réponse non-JSON (aucun '{...}' détecté).")
-    candidate = text[start : end + 1]
-    return json.loads(candidate)
+    if not (text or "").strip():
+        raise ValueError("Réponse vide: aucun JSON à parser.")
+
+    errors: list[str] = []
+    i = 0
+    found_braces = False
+
+    while i < len(text):
+        start = text.find("{", i)
+        if start == -1:
+            break
+
+        depth = 0
+        in_string = False
+        escape = False
+        end: int | None = None
+
+        for j in range(start, len(text)):
+            ch = text[j]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = j
+                    found_braces = True
+                    break
+
+        if end is None:
+            break
+
+        candidate = text[start : end + 1]
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            errors.append(
+                f"{exc.msg} (ligne {exc.lineno}, colonne {exc.colno})"
+            )
+            i = end + 1
+            continue
+
+        if isinstance(parsed, dict):
+            return parsed
+
+        errors.append("Le JSON détecté n'est pas un objet à la racine.")
+        i = end + 1
+
+    if errors:
+        raise ValueError(
+            "Aucun objet JSON valide détecté dans la réponse du modèle. "
+            f"Première erreur: {errors[0]}"
+        )
+    if found_braces:
+        raise ValueError(
+            "Des blocs '{...}' ont été détectés mais aucun objet JSON valide n'a pu être parsé."
+        )
+    raise ValueError("Réponse non-JSON (aucun bloc '{...}' équilibré détecté).")
 
 
 def _normalize_us_equity_symbol(raw_symbol: str) -> str | None:
@@ -404,7 +480,10 @@ def main() -> None:
     analysis_text = "TODO: analyse des derniers jours non implémentée."
     if args.analysis_file:
         if not args.analysis_file.exists():
-            raise FileNotFoundError(f"analysis-file introuvable: {args.analysis_file}")
+            raise FileNotFoundError(
+                "analysis-file introuvable: "
+                f"{args.analysis_file.resolve() if not args.analysis_file.is_absolute() else args.analysis_file}"
+            )
         analysis_text = _read_text_file(args.analysis_file)
 
     user_prompt = f"""
@@ -498,7 +577,9 @@ Analyse des derniers jours :
 
     if parse_error:
         raise RuntimeError(
-            "Le modèle n'a pas renvoyé du JSON valide. Le contenu brut est sauvegardé; relance si besoin."
+            "Le modèle n'a pas renvoyé un JSON exploitable: "
+            f"{parse_error}. "
+            f"Contenu brut sauvegardé dans: {out_path}"
         )
 
 

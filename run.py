@@ -53,6 +53,18 @@ def _ellipsize(text: str, max_chars: int) -> str:
     return clean[: max_chars - 1].rstrip() + "…"
 
 
+def _resolve_repo_path(path: Path, *, repo_root: Path) -> Path:
+    """
+    Résout un chemin CLI relatif par rapport à la racine du repo.
+
+    Pourquoi:
+        `run.py` peut être exécuté depuis un autre CWD. Sans cette normalisation,
+        les chemins par défaut (`responses`, `reflex_trader`) peuvent pointer vers
+        le mauvais dossier.
+    """
+    return path if path.is_absolute() else (repo_root / path)
+
+
 def _run(cmd: list[str], *, verbose: bool) -> None:
     """
     Exécute une commande en sous-process.
@@ -391,16 +403,33 @@ def main() -> None:
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent
+    responses_dir = _resolve_repo_path(args.responses_dir, repo_root=root)
+    reflex_dir = _resolve_repo_path(args.reflex_dir, repo_root=root)
+    research_report_arg = (
+        _resolve_repo_path(args.research_report, repo_root=root)
+        if args.research_report
+        else None
+    )
+    trader_report_arg = (
+        _resolve_repo_path(args.trader_report, repo_root=root)
+        if args.trader_report
+        else None
+    )
+    analysis_file_arg = (
+        _resolve_repo_path(args.analysis_file, repo_root=root)
+        if args.analysis_file
+        else None
+    )
 
     try:
         # --- Step 1: recherche ---
-        if args.research_report:
-            research_report = _ensure_non_empty_file(args.research_report, "Report recherche")
+        if research_report_arg:
+            research_report = _ensure_non_empty_file(research_report_arg, "Report recherche")
         else:
             if not args.skip_research:
                 print("[Research] running…")
                 _run([sys.executable, str(root / "grok_tools_test.py")], verbose=args.verbose)
-            research_report = _latest_research_report(args.responses_dir)
+            research_report = _latest_research_report(responses_dir)
 
         title = _research_title(research_report)
         print(
@@ -409,29 +438,29 @@ def main() -> None:
         )
 
         # --- Step 2: trader ---
-        if args.trader_report:
-            trader_report = _ensure_non_empty_file(args.trader_report, "Report trader")
+        if trader_report_arg:
+            trader_report = _ensure_non_empty_file(trader_report_arg, "Report trader")
         else:
             if not args.skip_trader:
                 trader_cmd = [
                     sys.executable,
                     str(root / "reflex_trader_agent.py"),
                     "--responses-dir",
-                    str(args.responses_dir),
+                    str(responses_dir),
                     "--reports-count",
                     str(args.reports_count),
                     "--out-dir",
-                    str(args.reflex_dir),
+                    str(reflex_dir),
                 ]
-                if args.analysis_file:
-                    trader_cmd += ["--analysis-file", str(args.analysis_file)]
+                if analysis_file_arg:
+                    trader_cmd += ["--analysis-file", str(analysis_file_arg)]
                 if args.fetch_prices:
                     trader_cmd += ["--fetch-prices"]
 
                 print("[Trader] running…")
                 _run(trader_cmd, verbose=args.verbose)
 
-            trader_report = _latest_trader_report(args.reflex_dir)
+            trader_report = _latest_trader_report(reflex_dir)
 
         portfolio_available, requested_symbols = _trader_summary(trader_report)
         bits: list[str] = []
@@ -452,6 +481,12 @@ def main() -> None:
         if args.verbose:
             raise
         print(f"\nWorkflow FAILED: {exc}")
+        if isinstance(exc, FileNotFoundError):
+            print(
+                "Hint: vérifie les chemins inputs/outputs "
+                f"(responses={responses_dir}, reflex_trader={reflex_dir}) "
+                "ou relance sans --skip-research/--skip-trader."
+            )
         raise SystemExit(1)
 
 
