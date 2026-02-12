@@ -6,7 +6,7 @@ Objectif:
     sans effectuer d'ordres (appels read-only).
 
 Fonctionnement:
-    - Charge les credentials depuis un fichier `.env` local (même dossier que ce script).
+    - Charge les credentials depuis le fichier `.env` à la racine du repo.
     - Appelle quelques endpoints simples (account, clock, positions).
 
 Variables d'environnement (recommandées):
@@ -32,12 +32,12 @@ from dotenv import load_dotenv
 
 def _load_env() -> None:
     """
-    Charge un fichier `.env` local (dans le même dossier que ce script).
+    Charge le fichier `.env` à la racine du repo.
 
     Effets de bord:
         - Remplit `os.environ` (sans écraser les variables déjà définies dans le shell).
     """
-    env_path = Path(__file__).resolve().parent / ".env"
+    env_path = Path(__file__).resolve().parents[2] / ".env"
     load_dotenv(dotenv_path=env_path, override=False)
 
 

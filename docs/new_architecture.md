@@ -15,7 +15,7 @@ La V2 introduit une séparation explicite des responsabilités:
 5. **IA Branch 3**
    - `FinalTraderAgent`: décision finale (LONG/SHORT/HOLD) + ordres proposés.
 6. **Execution Branch**
-   - `AlpacaTradeExecutor`: envoi d’ordres Alpaca (dry-run par défaut).
+   - `AlpacaTradeExecutor`: envoi d’ordres Alpaca (dry-run par défaut, confirmation terminal requise en mode live).
 
 ## Arborescence
 
@@ -37,7 +37,8 @@ python run_v2.py \
   --web-topic finance \
   --web-time-range day \
   --web-max-results 8 \
-  --financial-provider yahoo
+  --financial-provider yahoo \
+  --once
 ```
 
 Le script écrit un artefact JSON complet dans `pipeline_runs_v2/`.

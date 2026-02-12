@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
-from yfinance_tools import (
+from trading_pipeline.financial.yfinance_tools import (
     get_current_price,
     get_detailed_info,
     get_market_status,
     get_price_history,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def save_price_history(symbol: str, folder: str, history) -> str | None:
@@ -38,7 +41,11 @@ def test_symbol(symbol: str = "AAPL") -> None:
         print("Historique: indisponible")
     else:
         print(f"Historique: {len(history)} points")
-        saved = save_price_history(symbol, folder="price_history", history=history)
+        saved = save_price_history(
+            symbol,
+            folder=str(REPO_ROOT / "price_history"),
+            history=history,
+        )
         if saved:
             print(f"CSV sauvegardé: {saved}")
 

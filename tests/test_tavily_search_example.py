@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import unittest
 
-from tavily_search_example import (
+from scripts.data.tavily_search_example import (
     _build_search_kwargs,
     _domain,
     _split_csv,

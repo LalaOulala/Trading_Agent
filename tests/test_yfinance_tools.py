@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-import yfinance_tools
+from trading_pipeline.financial import yfinance_tools
 
 
 class _StubTicker:
