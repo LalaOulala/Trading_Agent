@@ -302,4 +302,5 @@ Faire evoluer les agents:
 - `ConnectionError api.tavily.com`: verifier connectivite/DNS local.
 - `Credentials Alpaca manquants`: renseigner `ALPACA_API_KEY` et `ALPACA_API_SECRET`.
 - `Aucun ordre soumis`: action finale `HOLD`, `--execute-orders` non active, ou confirmation utilisateur non valide (attendu: `yes`).
+- `account is not allowed to short`: le moteur bloque désormais les ordres `sell` qui ouvriraient un short; seules les ventes de clôture d'une position longue existante restent autorisées.
 - `Pipeline sans symbole`: regarder `pre_analysis.candidate_symbols` puis `focus_selection.focus_symbols`.

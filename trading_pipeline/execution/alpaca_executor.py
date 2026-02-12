@@ -72,6 +72,7 @@ class AlpacaTradeExecutor(TradeExecutor):
                 "equity": getattr(account, "equity", None),
                 "cash": getattr(account, "cash", None),
                 "buying_power": getattr(account, "buying_power", None),
+                "shorting_enabled": getattr(account, "shorting_enabled", None),
                 "positions": [
                     {
                         "symbol": getattr(pos, "symbol", None),
@@ -105,7 +106,96 @@ class AlpacaTradeExecutor(TradeExecutor):
             )
         return normalized
 
-    def _confirm_submission(self, orders: list[dict[str, Any]]) -> bool:
+    @staticmethod
+    def _available_long_qty_by_symbol(snapshot: dict[str, Any]) -> dict[str, float]:
+        available: dict[str, float] = {}
+        positions = snapshot.get("positions") or []
+        for pos in positions:
+            symbol = str(pos.get("symbol", "")).upper().strip()
+            if not symbol:
+                continue
+
+            side_txt = str(pos.get("side", "")).lower()
+            if "short" in side_txt:
+                continue
+
+            try:
+                qty = float(pos.get("qty", 0))
+            except (TypeError, ValueError):
+                continue
+
+            if qty <= 0:
+                continue
+
+            available[symbol] = available.get(symbol, 0.0) + qty
+        return available
+
+    def _filter_short_blocked_orders(
+        self,
+        orders: list[dict[str, Any]],
+        *,
+        snapshot: dict[str, Any] | None,
+        snapshot_error: str | None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+        sells = [o for o in orders if o.get("side") == "sell"]
+        if not sells:
+            return orders, [], None
+
+        if snapshot is None:
+            allowed = [o for o in orders if o.get("side") != "sell"]
+            blocked = [o for o in orders if o.get("side") == "sell"]
+            reason = (
+                "Ventes bloquées: snapshot portefeuille indisponible "
+                f"({snapshot_error or 'erreur inconnue'}), impossible de vérifier les positions."
+            )
+            return allowed, blocked, reason
+
+        shorting_enabled = snapshot.get("shorting_enabled")
+        if shorting_enabled is True:
+            return orders, [], None
+
+        available_long = self._available_long_qty_by_symbol(snapshot)
+        allowed: list[dict[str, Any]] = []
+        blocked: list[dict[str, Any]] = []
+
+        for order in orders:
+            if order.get("side") != "sell":
+                allowed.append(order)
+                continue
+
+            symbol = str(order.get("symbol", "")).upper()
+            requested = float(order.get("qty", 0))
+            held = available_long.get(symbol, 0.0)
+            if held <= 0:
+                blocked.append(order)
+                continue
+
+            if held + 1e-9 >= requested:
+                allowed.append(order)
+                available_long[symbol] = held - requested
+                continue
+
+            # Autorise uniquement la partie qui clôture une position longue existante.
+            allowed.append({**order, "qty": held})
+            blocked.append({**order, "qty": requested - held})
+            available_long[symbol] = 0.0
+
+        if not blocked:
+            return allowed, [], None
+
+        if shorting_enabled is False:
+            reason = "Ventes bloquées pour éviter un short non autorisé par le compte Alpaca."
+        else:
+            reason = "Ventes bloquées pour éviter l'ouverture d'un short (positions longues insuffisantes)."
+        return allowed, blocked, reason
+
+    def _confirm_submission(
+        self,
+        orders: list[dict[str, Any]],
+        *,
+        snapshot: dict[str, Any] | None = None,
+        snapshot_error: str | None = None,
+    ) -> bool:
         if not self.require_confirmation:
             return True
 
@@ -113,7 +203,8 @@ class AlpacaTradeExecutor(TradeExecutor):
         print("\n[Alpaca] Ordres prêts à être envoyés")
         print(f"- Mode: {mode}")
 
-        snapshot, snapshot_error = self._load_portfolio_snapshot()
+        if snapshot is None and snapshot_error is None:
+            snapshot, snapshot_error = self._load_portfolio_snapshot()
         if snapshot_error:
             print(f"- Portefeuille: indisponible ({snapshot_error})")
         elif snapshot:
@@ -122,6 +213,8 @@ class AlpacaTradeExecutor(TradeExecutor):
             print(f"  - equity={snapshot.get('equity')}")
             print(f"  - cash={snapshot.get('cash')}")
             print(f"  - buying_power={snapshot.get('buying_power')}")
+            if snapshot.get("shorting_enabled") is not None:
+                print(f"  - shorting_enabled={snapshot.get('shorting_enabled')}")
             positions = snapshot.get("positions") or []
             if positions:
                 print("  - positions:")
@@ -263,27 +356,72 @@ class AlpacaTradeExecutor(TradeExecutor):
                 message=market_message or "Le marché est fermé.",
             )
 
-        if not self._confirm_submission(normalized_orders):
+        snapshot: dict[str, Any] | None = None
+        snapshot_error: str | None = None
+        needs_snapshot = self.require_confirmation or any(
+            order["side"] == "sell" for order in normalized_orders
+        )
+        if needs_snapshot:
+            snapshot, snapshot_error = self._load_portfolio_snapshot()
+
+        orders_to_submit, blocked_orders, blocked_reason = self._filter_short_blocked_orders(
+            normalized_orders,
+            snapshot=snapshot,
+            snapshot_error=snapshot_error,
+        )
+
+        if not orders_to_submit:
+            blocked_count = len(blocked_orders)
+            blocked_symbols = sorted({str(o.get("symbol", "")) for o in blocked_orders if o.get("symbol")})
+            suffix = f" Ordres bloqués={blocked_count}"
+            if blocked_symbols:
+                suffix += f" ({', '.join(blocked_symbols)})."
+            else:
+                suffix += "."
             return ExecutionReport(
                 status="skipped",
                 broker="alpaca",
-                details=normalized_orders,
+                details=blocked_orders,
+                message=(blocked_reason or "Aucun ordre exécutable.") + suffix,
+            )
+
+        if not self._confirm_submission(
+            orders_to_submit,
+            snapshot=snapshot,
+            snapshot_error=snapshot_error,
+        ):
+            return ExecutionReport(
+                status="skipped",
+                broker="alpaca",
+                details=orders_to_submit,
                 message="Envoi annulé: confirmation utilisateur absente (attendu: yes).",
             )
 
         try:
-            submitted = self._submit_orders(normalized_orders)
+            submitted = self._submit_orders(orders_to_submit)
         except Exception as exc:
+            blocked_note = ""
+            if blocked_orders:
+                blocked_note = (
+                    f" {len(blocked_orders)} ordre(s) bloqué(s) avant envoi "
+                    "(risque de short non autorisé)."
+                )
             return ExecutionReport(
                 status="error",
                 broker="alpaca",
                 details=[],
-                message=f"Echec soumission Alpaca ({type(exc).__name__}: {exc})",
+                message=f"Echec soumission Alpaca ({type(exc).__name__}: {exc}){blocked_note}",
             )
 
+        blocked_note = ""
+        if blocked_orders:
+            blocked_note = (
+                f" {len(blocked_orders)} ordre(s) bloqué(s) avant envoi "
+                "(risque de short non autorisé)."
+            )
         return ExecutionReport(
             status="submitted",
             broker="alpaca",
             details=submitted,
-            message=f"{len(submitted)} ordres soumis.",
+            message=f"{len(submitted)} ordres soumis.{blocked_note}",
         )

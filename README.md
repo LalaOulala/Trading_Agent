@@ -33,6 +33,135 @@ run.py              # point d’entrée legacy
 4. Lancer les tests:
    - `.venv/bin/python -m unittest discover -s tests -v`
 
+## Lancer `run_v2.py` (guide complet)
+
+### 1) Préparer l'environnement
+
+```bash
+cd /Users/lala/CascadeProjects/trading_agent1
+source .venv/bin/activate
+set -a
+source .env
+set +a
+```
+
+Variables utiles dans `.env`:
+- `TAVILY_API_KEY`: obligatoire (branche web/fresh data).
+- `ALPACA_API_KEY`: obligatoire pour exécution ordres et vérification marché.
+- `ALPACA_API_SECRET`: obligatoire pour exécution ordres et vérification marché.
+- `ALPACA_PAPER=true`: recommandé en paper trading.
+
+### 2) Mode simple: un seul cycle (dry-run)
+
+```bash
+.venv/bin/python run_v2.py \
+  --query "S&P 500 market drivers today" \
+  --financial-provider yahoo \
+  --once
+```
+
+### 3) Mode exécution ordres (confirmation manuelle)
+
+```bash
+.venv/bin/python run_v2.py \
+  --query "S&P 500 market drivers today" \
+  --financial-provider yahoo \
+  --execute-orders \
+  --once
+```
+
+Le terminal affiche le résumé des ordres Alpaca et attend `yes` pour envoyer.
+
+### 4) Mode exécution ordres (auto-accept)
+
+```bash
+.venv/bin/python run_v2.py \
+  --query "S&P 500 market drivers today" \
+  --financial-provider yahoo \
+  --execute-orders \
+  --auto-accept-orders \
+  --once
+```
+
+Alias accepté: `--auto-confirm-orders`.
+
+### 5) Mode boucle (trading continu)
+
+Par défaut, `run_v2.py` est en boucle continue tant que tu ne mets pas `--once`.
+
+```bash
+.venv/bin/python run_v2.py \
+  --query "S&P 500 market drivers today" \
+  --financial-provider yahoo \
+  --execute-orders \
+  --auto-accept-orders \
+  --interval-seconds 300 \
+  --stop-if-market-closed
+```
+
+Comportement:
+- lance un cycle complet;
+- dort `interval-seconds`;
+- recommence jusqu'à `Ctrl+C`;
+- si `--stop-if-market-closed` est actif et que le marché est fermé, affiche:
+  - `Le marché est fermé, il réouvre dans ...`
+  - puis quitte proprement.
+
+### 6) Paramètres CLI principaux
+
+- `--query`: prompt de recherche macro/market.
+- `--financial-provider {yahoo|placeholder}`: source données financières.
+- `--financial-mock-file`: JSON mock utilisé si provider `placeholder`.
+- `--execute-orders`: active l'envoi d'ordres Alpaca (sinon simulation).
+- `--auto-accept-orders`: bypass de la confirmation interactive (`yes`).
+- `--order-qty`: quantité unitaire par ordre (défaut `1.0`).
+- `--interval-seconds`: pause entre cycles en mode boucle (défaut `300`).
+- `--once`: force un seul cycle puis sortie.
+- `--stop-if-market-closed`: check Alpaca clock avant cycle; quitte si marché fermé.
+- `--web-topic`, `--web-time-range`, `--web-max-results`, `--web-include-domains`, `--web-exclude-domains`: réglages de la collecte Tavily.
+
+### 7) Artefacts et logs
+
+Chaque cycle écrit un artefact JSON dans:
+- `pipeline_runs_v2/`
+
+Le résumé terminal affiche notamment:
+- l'action (`LONG`/`SHORT`/`HOLD`);
+- les symboles ciblés;
+- le statut broker (`submitted`, `skipped`, `error`);
+- le chemin de l'artefact.
+
+### 8) Dépannage: erreur short Alpaca
+
+Symptôme typique:
+- `APIError: {"code":40310000,"message":"account is not allowed to short"}`
+
+Diagnostic du compte actif:
+
+```bash
+curl -s https://paper-api.alpaca.markets/v2/account \
+  -H "APCA-API-KEY-ID: $ALPACA_API_KEY" \
+  -H "APCA-API-SECRET-KEY: $ALPACA_API_SECRET" | jq '{account_number,equity,multiplier,shorting_enabled}'
+```
+
+Interprétation:
+- si `shorting_enabled=false` ou `multiplier="1"`, le short est interdit.
+- pour shorter, viser `equity >= 2000`, `multiplier="2"`, `shorting_enabled=true`.
+
+Vérifier aussi que l'actif est shortable:
+
+```bash
+curl -s https://paper-api.alpaca.markets/v2/assets/SPY \
+  -H "APCA-API-KEY-ID: $ALPACA_API_KEY" \
+  -H "APCA-API-SECRET-KEY: $ALPACA_API_SECRET" | jq '{symbol,tradable,shortable,easy_to_borrow}'
+```
+
+Si `shorting_enabled` est `false`:
+- créer un paper account avec fonds >= 2000;
+- générer de nouvelles clés API pour ce compte;
+- mettre à jour `.env` (`ALPACA_API_KEY`, `ALPACA_API_SECRET`);
+- redémarrer le process `run_v2.py` (important si ancien process lancé avec d'anciennes clés).
+
 ## Commandes utiles
 
 - Smoke tests API:

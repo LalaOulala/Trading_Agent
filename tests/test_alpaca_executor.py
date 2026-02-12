@@ -27,6 +27,26 @@ def _decision_with_order() -> FinalDecision:
     )
 
 
+def _decision_with_sell_order(symbol: str = "AAPL", qty: float = 1.0) -> FinalDecision:
+    return FinalDecision(
+        action="SHORT",
+        symbols=[symbol],
+        thesis="Pression vendeuse.",
+        risk_controls=["Taille unitaire faible."],
+        confidence="medium",
+        should_execute=True,
+        orders=[
+            {
+                "symbol": symbol,
+                "side": "sell",
+                "qty": qty,
+                "type": "market",
+                "time_in_force": "day",
+            }
+        ],
+    )
+
+
 class _NoSubmitExecutor(AlpacaTradeExecutor):
     def _load_portfolio_snapshot(self) -> tuple[dict[str, object] | None, str | None]:
         return (
@@ -151,6 +171,36 @@ class AlpacaExecutorTests(unittest.TestCase):
         self.assertEqual(report.status, "skipped")
         self.assertIn("marché est fermé", report.message.lower())
         self.assertEqual(len(report.details), 1)
+
+    def test_execute_live_blocks_sell_when_it_would_open_short(self) -> None:
+        executor = _NoSubmitExecutor(
+            api_key="key",
+            api_secret="secret",
+            paper=True,
+            execute_live=True,
+            require_confirmation=False,
+        )
+        with patch("builtins.input", side_effect=AssertionError("input() ne doit pas être appelé")):
+            report = executor.execute(_decision_with_sell_order("AAPL", 1.0))
+
+        self.assertEqual(report.status, "skipped")
+        self.assertIn("short", report.message.lower())
+        self.assertEqual(len(report.details), 1)
+
+    def test_execute_live_allows_sell_to_close_existing_long(self) -> None:
+        executor = _StubSubmitExecutor(
+            api_key="key",
+            api_secret="secret",
+            paper=True,
+            execute_live=True,
+            require_confirmation=False,
+        )
+        with patch("builtins.input", side_effect=AssertionError("input() ne doit pas être appelé")):
+            report = executor.execute(_decision_with_sell_order("SPY", 1.0))
+
+        self.assertEqual(report.status, "submitted")
+        self.assertEqual(report.details[0]["symbol"], "SPY")
+        self.assertEqual(report.details[0]["side"], "sell")
 
 
 if __name__ == "__main__":
