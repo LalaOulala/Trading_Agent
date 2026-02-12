@@ -39,3 +39,5 @@ htmlcov/
 responses/
 reponse_test.txt
 reflex_trader/
+pipeline_runs_v2/
+tavily_search_*.json

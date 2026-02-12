@@ -20,6 +20,12 @@ Ce dépôt est le point de départ d'un agent de trading piloté par un LLM (pap
    - `python reflex_trader_agent.py`
 6. Workflow complet (recherche -> trader):
    - `python run.py`
+7. Test Tavily (web search standalone, avant migration complète):
+   - renseigne `TAVILY_API_KEY` dans `.env`
+   - `python tavily_search_example.py --query "S&P 500 market drivers today" --topic finance --time-range day --max-results 8 --include-answer`
+8. Nouveau workflow segmenté (V2, orienté objets):
+   - `python run_v2.py --query "S&P 500 market drivers today" --web-topic finance --web-time-range day`
+   - artefacts dans `pipeline_runs_v2/`
 
 ## Workflow détaille (exemple réel)
 
