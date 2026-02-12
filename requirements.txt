@@ -3,3 +3,4 @@ python-dotenv
 xai-sdk
 pytz
 tavily-python
+yfinance

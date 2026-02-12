@@ -10,7 +10,8 @@ La V2 introduit une séparation explicite des responsabilités:
 3. **IA Branch 2**
    - `FocusTraderAgent`: filtre et shortlist des symboles à creuser.
 4. **Financial Data Branch**
-   - `YahooPlaceholderProvider`: branche finance dédiée (Yahoo à brancher ensuite).
+   - `YahooFinancePoolProvider`: branche finance dédiée (connectée au pool Yahoo Finance).
+   - `YahooPlaceholderProvider`: fallback mock pour tests hors réseau.
 5. **IA Branch 3**
    - `FinalTraderAgent`: décision finale (LONG/SHORT/HOLD) + ordres proposés.
 6. **Execution Branch**
@@ -35,7 +36,8 @@ python run_v2.py \
   --query "S&P 500 market drivers today" \
   --web-topic finance \
   --web-time-range day \
-  --web-max-results 8
+  --web-max-results 8 \
+  --financial-provider yahoo
 ```
 
 Le script écrit un artefact JSON complet dans `pipeline_runs_v2/`.
@@ -43,4 +45,4 @@ Le script écrit un artefact JSON complet dans `pipeline_runs_v2/`.
 ## Notes
 
 - L’architecture V2 est ajoutée sans casser les scripts historiques (`run.py`, `grok_tools_test.py`, `reflex_trader_agent.py`).
-- La branche Yahoo est volontairement placeholder: elle accepte déjà un `--financial-mock-file` pour valider le workflow avant intégration API réelle.
+- Le provider Yahoo réel peut être remplacé par le placeholder via `--financial-provider placeholder --financial-mock-file ...`.

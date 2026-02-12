@@ -22,7 +22,7 @@ from trading_pipeline.agents import FinalTraderAgent, FocusTraderAgent, PreAnaly
 from trading_pipeline.collectors import FreshDataHub, TavilyWebCollector, XPlaceholderCollector
 from trading_pipeline.config import PipelineConfig
 from trading_pipeline.execution import AlpacaTradeExecutor
-from trading_pipeline.financial import YahooPlaceholderProvider
+from trading_pipeline.financial import YahooFinancePoolProvider, YahooPlaceholderProvider
 from trading_pipeline.workflow import TradingDecisionPipeline
 
 
@@ -95,6 +95,12 @@ def main() -> None:
         help="JSON mock financier (branche finance) en attendant Yahoo branché.",
     )
     parser.add_argument(
+        "--financial-provider",
+        choices=["yahoo", "placeholder"],
+        default="yahoo",
+        help="Provider financier utilisé par la branche data finance.",
+    )
+    parser.add_argument(
         "--order-qty",
         type=float,
         default=1.0,
@@ -134,7 +140,10 @@ def main() -> None:
 
     pre_agent = PreAnalysisAgent(max_candidate_symbols=config.max_candidate_symbols)
     focus_agent = FocusTraderAgent(max_focus_symbols=config.max_focus_symbols)
-    financial_provider = YahooPlaceholderProvider(mock_file=args.financial_mock_file)
+    if args.financial_provider == "yahoo":
+        financial_provider = YahooFinancePoolProvider()
+    else:
+        financial_provider = YahooPlaceholderProvider(mock_file=args.financial_mock_file)
     final_agent = FinalTraderAgent(order_qty=args.order_qty)
     executor = AlpacaTradeExecutor(
         api_key=config.alpaca_api_key,

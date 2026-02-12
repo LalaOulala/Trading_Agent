@@ -10,7 +10,7 @@ Ce dépôt est le point de départ d'un agent de trading piloté par un LLM (pap
 2. Installe les dépendances:
    - `python -m pip install -r requirements.txt`
 3. Ajoute tes clés:
-   - copie `.env.example` → `.env` puis remplis les valeurs
+   - crée/édite `.env` puis remplis les valeurs (`XAI_API_KEY`, `TAVILY_API_KEY`, clés Alpaca si besoin)
 4. Smoke tests:
    - `python alpaca_api_test.py`
    - `python grok_api_test.py`
@@ -24,8 +24,11 @@ Ce dépôt est le point de départ d'un agent de trading piloté par un LLM (pap
    - renseigne `TAVILY_API_KEY` dans `.env`
    - `python tavily_search_example.py --query "S&P 500 market drivers today" --topic finance --time-range day --max-results 8 --include-answer`
 8. Nouveau workflow segmenté (V2, orienté objets):
-   - `python run_v2.py --query "S&P 500 market drivers today" --web-topic finance --web-time-range day`
+   - `python run_v2.py --query "S&P 500 market drivers today" --web-topic finance --web-time-range day --financial-provider yahoo`
    - artefacts dans `pipeline_runs_v2/`
+9. Tests Yahoo Finance standalone:
+   - `python testyfinance.py`
+   - `python testyfinance_advanced.py`
 
 ## Workflow détaille (exemple réel)
 
