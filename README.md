@@ -18,6 +18,8 @@ Ce dépôt est le point de départ d'un agent de trading piloté par un LLM (pap
 5. Agent "Reflex Trader" (questions prix + conclusion, outputs dans `reflex_trader/`):
    - (pré-requis: avoir un report récent dans `responses/`, ex via `python grok_tools_test.py`)
    - `python reflex_trader_agent.py`
+6. Workflow complet (recherche -> trader):
+   - `python run.py`
 
 ## Documentation
 
