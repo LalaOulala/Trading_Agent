@@ -1,6 +1,6 @@
 # Tavily Search (exemple)
 
-Ce document décrit le script `tavily_search_example.py`, ajouté pour évaluer la pertinence de Tavily avant de remplacer la recherche web actuelle.
+Ce document décrit le script `scripts/data/tavily_search_example.py`, utilisé pour évaluer/régler la pertinence de Tavily (source web utilisée par le flux legacy et la V2).
 
 ## Pré-requis
 
@@ -10,7 +10,7 @@ Ce document décrit le script `tavily_search_example.py`, ajouté pour évaluer 
 ## Commande type
 
 ```bash
-python tavily_search_example.py \
+python scripts/data/tavily_search_example.py \
   --query "S&P 500 market drivers today" \
   --topic finance \
   --time-range day \
@@ -26,7 +26,7 @@ python tavily_search_example.py \
 - Ratio de résultats sur une liste de domaines "trusted" configurable.
 
 Le script sauvegarde aussi la réponse JSON brute dans:
-- `tavily_search_<timestamp>.json` (par défaut), ou
+- `responses/tavily_search/tavily_search_<timestamp>.json` (par défaut), ou
 - un chemin personnalisé avec `--out`.
 
 ## Paramètres utiles
@@ -45,4 +45,4 @@ Comparer, sur les mêmes requêtes de marché:
 - latence,
 - coût en crédits.
 
-Cette étape est volontairement séparée du workflow `run.py` pour permettre un benchmark propre avant migration.
+Cette étape reste séparée des workflows `run.py` / `run_v2.py` pour permettre un benchmark propre et répétable.

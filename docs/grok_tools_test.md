@@ -1,6 +1,9 @@
 # grok_tools_test.py (conclusion de marché)
 
-Ce script génère une **conclusion de marché actions** (par défaut **US / S&P 500**) en s’appuyant sur les tools serveur **`web_search`** (sources web) et **`x_search`** (signaux X/Twitter).
+Ce script génère une **conclusion de marché actions** (par défaut **US / S&P 500**) avec:
+
+- **Web**: recherche collectée via **Tavily** côté script (injectée dans le prompt),
+- **Social**: tool serveur Grok **`x_search`** uniquement (signaux X/Twitter).
 
 ## Prompts
 
@@ -11,7 +14,10 @@ Les prompts sont externalisés dans le dossier `prompts/` :
 
 ## Exécution
 
-Pré-requis : `XAI_API_KEY` doit être défini (dans `.env` ou dans ton shell).
+Pré-requis :
+
+- `XAI_API_KEY` doit être défini (dans `.env` ou dans ton shell),
+- `TAVILY_API_KEY` doit être défini (dans `.env` ou dans ton shell).
 
 Commande :
 
@@ -34,4 +40,5 @@ Dans `grok_tools_test.py`, les garde-fous principaux sont :
 
 - `MAX_TURNS` : nombre maximum de tours agentiques (ne correspond pas forcément au nombre exact de tool calls).
 - `MAX_TOKENS` : limite de tokens pour la réponse.
+- `TAVILY_MAX_RESULTS` : nombre max de résultats web injectés.
 - `X_LOOKBACK_HOURS` : fenêtre temporelle pour `x_search`.

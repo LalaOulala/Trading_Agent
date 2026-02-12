@@ -22,13 +22,18 @@ Installation:
 
 ## Variables d'environnement (.env)
 
-1. Copie le template: `.env.example` → `.env`
-2. Renseigne tes clés (ne commit jamais `.env`).
+Crée un fichier `.env` à la racine et renseigne au minimum:
+
+- `TAVILY_API_KEY=...`
+- `ALPACA_API_KEY=...`
+- `ALPACA_API_SECRET=...`
+- `ALPACA_PAPER=true`
+- optionnel: `XAI_API_KEY=...`
 
 Les scripts de smoke test chargent `.env` depuis la racine du repo.
 
 ## Smoke tests
 
-- Alpaca (read-only): `python alpaca_api_test.py`
-- xAI/Grok: `python grok_api_test.py`
-- Conclusion de marché (web_search + x_search): `python grok_tools_test.py` (prompts dans `prompts/`)
+- Alpaca (read-only): `python scripts/smoke/alpaca_api_test.py`
+- xAI/Grok: `python scripts/smoke/grok_api_test.py`
+- Conclusion de marché legacy (web Tavily + x_search Grok): `python grok_tools_test.py` (prompts dans `prompts/`)

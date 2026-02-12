@@ -1,16 +1,18 @@
 """
-Script de test Grok (xAI) avec tools `web_search` et `x_search`.
+Script de conclusion marché (Tavily web + Grok x_search).
 
 Objectif:
     Produire une conclusion de marché actions (US / S&P 500 par défaut) basée sur des
-    faits sourcés: web (prioritaire) + signaux X (à confirmer/recouper).
+    faits sourcés:
+    - Web: collectés côté script via Tavily (source web principale)
+    - X: collectés côté Grok via le tool serveur `x_search` (signaux chauds à recouper)
 
 Organisation:
     - Prompts: `prompts/redaction.txt` et `prompts/presentation.txt`
     - Sorties: un dossier par exécution dans `responses/YYYY-MM-DD_HH-MM-SS/`
 
 Pré-requis:
-    - Variable d'environnement `XAI_API_KEY` (via `.env` ou le shell).
+    - Variables d'environnement `XAI_API_KEY` et `TAVILY_API_KEY`.
 """
 
 from __future__ import annotations
@@ -23,15 +25,32 @@ from pathlib import Path
 from dotenv import load_dotenv
 from xai_sdk import Client
 from xai_sdk.chat import system, user
-from xai_sdk.tools import web_search, x_search
+from xai_sdk.tools import x_search
+
+from trading_pipeline.collectors.tavily_web import TavilyWebCollector
 
 
 MODEL = "grok-4-1-fast"  # modèle volontairement en dur
-MAX_TURNS = 3  # garde-fou coûts: web -> X -> web (validation)
+MAX_TURNS = 2  # garde-fou coûts: x_search + rédaction
 MAX_TOKENS = 1600  # garde-fou coûts: limite la taille de la réponse
 X_LOOKBACK_HOURS = 24
 MAX_FALLBACK_CITATIONS = 20
-ALLOWED_DOMAINS: list[str] | None = None  # ex: ["reuters.com", "federalreserve.gov", ...] (max 5)
+
+TAVILY_QUERY = "S&P 500 market drivers today macro yields earnings sectors premarket"
+TAVILY_TOPIC = "finance"
+TAVILY_SEARCH_DEPTH = "basic"
+TAVILY_TIME_RANGE = "day"
+TAVILY_MAX_RESULTS = 8
+TAVILY_INCLUDE_DOMAINS: list[str] | None = [
+    "reuters.com",
+    "bloomberg.com",
+    "cnbc.com",
+    "wsj.com",
+    "investopedia.com",
+]
+TAVILY_EXCLUDE_DOMAINS: list[str] | None = None
+MAX_TAVILY_SIGNALS_IN_PROMPT = 8
+MAX_TAVILY_SNIPPET_CHARS = 320
 
 PROMPTS_DIRNAME = "prompts"
 REDACTION_PROMPT_FILENAME = "redaction.txt"
@@ -120,6 +139,61 @@ def _ensure_sources_section(
     )
 
 
+def _compact_whitespace(text: str) -> str:
+    return " ".join((text or "").split())
+
+
+def _truncate(text: str, max_chars: int) -> str:
+    clean = _compact_whitespace(text)
+    if max_chars <= 0 or len(clean) <= max_chars:
+        return clean
+    return clean[: max_chars - 1].rstrip() + "…"
+
+
+def _collect_tavily_context(tavily_api_key: str) -> tuple[str, list[str], list[str]]:
+    """
+    Collecte des signaux web via Tavily et formate un bloc texte pour le prompt LLM.
+
+    Retours:
+        - bloc texte compact destiné au prompt utilisateur,
+        - liste des URLs sources Tavily,
+        - notes techniques Tavily.
+    """
+    collector = TavilyWebCollector(
+        api_key=tavily_api_key,
+        topic=TAVILY_TOPIC,
+        search_depth=TAVILY_SEARCH_DEPTH,
+        time_range=TAVILY_TIME_RANGE,
+        max_results=TAVILY_MAX_RESULTS,
+        include_domains=TAVILY_INCLUDE_DOMAINS,
+        exclude_domains=TAVILY_EXCLUDE_DOMAINS,
+        include_answer=True,
+    )
+    collected = collector.collect(TAVILY_QUERY)
+
+    lines: list[str] = []
+    urls: list[str] = []
+    for idx, signal in enumerate(collected.signals[:MAX_TAVILY_SIGNALS_IN_PROMPT], start=1):
+        urls.append(signal.url)
+        score = f" | score={signal.score:.3f}" if signal.score is not None else ""
+        lines.append(f"{idx}. {signal.title}{score}")
+        lines.append(f"   URL: {signal.url}")
+        snippet = _truncate(signal.snippet, MAX_TAVILY_SNIPPET_CHARS)
+        if snippet:
+            lines.append(f"   Extrait: {snippet}")
+
+    if not lines:
+        lines.append("(Aucun signal web Tavily exploitable)")
+
+    if collected.notes:
+        lines.append("")
+        lines.append("Notes Tavily:")
+        for note in collected.notes:
+            lines.append(f"- {_compact_whitespace(note)}")
+
+    return "\n".join(lines), urls, collected.notes
+
+
 def main() -> None:
     """
     Lance une exécution complète (recherche + rédaction) et écrit les fichiers de sortie.
@@ -134,13 +208,18 @@ def main() -> None:
     script_dir = Path(__file__).resolve().parent
     _load_env(script_dir)
 
-    api_key = os.getenv("XAI_API_KEY")
-    if not api_key:
+    xai_api_key = os.getenv("XAI_API_KEY")
+    if not xai_api_key:
         raise RuntimeError(
             "Définis `XAI_API_KEY` dans `.env` (ou dans ton shell) avant de lancer ce script."
         )
+    tavily_api_key = os.getenv("TAVILY_API_KEY")
+    if not tavily_api_key:
+        raise RuntimeError(
+            "Définis `TAVILY_API_KEY` dans `.env` (ou dans ton shell) avant de lancer ce script."
+        )
 
-    client = Client(api_key=api_key)
+    client = Client(api_key=xai_api_key)
 
     now = datetime.now(timezone.utc)
     now_utc = now.strftime("%Y-%m-%d %H:%M UTC")
@@ -161,6 +240,13 @@ def main() -> None:
             f"- {presentation_prompt_path}\n"
         ) from exc
 
+    try:
+        tavily_context, tavily_urls, tavily_notes = _collect_tavily_context(tavily_api_key)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Collecte web Tavily impossible ({type(exc).__name__}: {exc})"
+        ) from exc
+
     user_prompt = f"""
 {presentation_prompt}
 
@@ -168,14 +254,15 @@ Informations utiles (pour remplir le titre et cadrer le périmètre) :
 - Maintenant (heure locale) : {now_local_str}
 - Maintenant (UTC) : {now_utc}
 - Fenêtre X : dernières {X_LOOKBACK_HOURS}h (de {from_date.strftime("%Y-%m-%d %H:%M UTC")} à {now_utc})
+- Web query Tavily: {TAVILY_QUERY}
+
+Données web (Tavily, base factuelle prioritaire) :
+{tavily_context}
 """.strip()
 
     chat = client.chat.create(
         model=MODEL,
         tools=[
-            web_search(allowed_domains=ALLOWED_DOMAINS)
-            if ALLOWED_DOMAINS
-            else web_search(),
             x_search(from_date=from_date, to_date=now),
         ],
         tool_choice="required",
@@ -197,6 +284,7 @@ Informations utiles (pour remplir le titre et cadrer le périmètre) :
     output_path = run_dir / "report.txt"
     content = (response.content or "").strip()
     citations = list(response.citations or [])
+    citations.extend(tavily_urls)
     content = _ensure_sources_section(
         content=content, citations=citations, max_citations=MAX_FALLBACK_CITATIONS
     )
@@ -211,6 +299,11 @@ Informations utiles (pour remplir le titre et cadrer le périmètre) :
                 f"Local: {now_local_str}",
                 f"UTC: {now_utc}",
                 f"Prompts: {redaction_prompt_path}, {presentation_prompt_path}",
+                f"Tavily query: {TAVILY_QUERY}",
+                f"Tavily config: topic={TAVILY_TOPIC}, depth={TAVILY_SEARCH_DEPTH}, "
+                f"time_range={TAVILY_TIME_RANGE}, max_results={TAVILY_MAX_RESULTS}",
+                f"Tavily notes: {tavily_notes}",
+                f"Tavily URLs: {tavily_urls}",
                 f"Usage: {response.usage}",
                 f"Tools used (billed): {response.server_side_tool_usage}",
                 f"Tool calls: {response.tool_calls}",

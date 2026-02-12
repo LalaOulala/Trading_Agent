@@ -7,8 +7,10 @@
 
 ## Exécution
 
-- Run simple:
-  - `python run.py`
+- Run continu par défaut (toutes les 5 minutes):
+  - `python run.py --interval-seconds 300`
+- Run unique (sans boucle):
+  - `python run.py --once`
 
 ## Options utiles
 
@@ -19,4 +21,10 @@
   - `python run.py --research-report responses/<run>/report.txt --trader-report reflex_trader/<run>.txt`
 - Debug:
   - `python run.py --verbose`
+- Run unique + debug:
+  - `python run.py --once --verbose`
+- Boucle continue:
+  - `python run.py --interval-seconds 600` (exemple 10 minutes)
 
+Arrêt:
+- `Ctrl+C` stoppe proprement la boucle.

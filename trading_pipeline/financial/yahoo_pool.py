@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .base import FinancialDataProvider
+from .yfinance_tools import get_current_price, get_detailed_info, get_price_history
 from trading_pipeline.models import FinancialSnapshot, utc_now_iso
-from yfinance_tools import get_current_price, get_detailed_info, get_price_history
 
 
 def _compute_changes(symbol: str) -> tuple[float | None, float | None]:

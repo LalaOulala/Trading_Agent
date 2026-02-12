@@ -8,7 +8,7 @@ __pycache__/
 .venv/
 venv/
 
-# Env files (keep template)
+# Env files
 .env
 .env.local
 .env.*.local
@@ -40,5 +40,4 @@ responses/
 reponse_test.txt
 reflex_trader/
 pipeline_runs_v2/
-tavily_search_*.json
 price_history/

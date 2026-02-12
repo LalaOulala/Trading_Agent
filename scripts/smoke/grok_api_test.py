@@ -6,7 +6,7 @@ Objectif:
     fonctionne (sans logique de trading).
 
 Fonctionnement:
-    - Charge un `.env` local (même dossier que ce script).
+    - Charge le `.env` à la racine du repo.
     - Envoie un prompt simple et affiche la réponse.
 """
 
@@ -28,7 +28,7 @@ def main() -> None:
     Exceptions:
         RuntimeError: si `XAI_API_KEY` n'est pas définie.
     """
-    env_path = Path(__file__).resolve().parent / ".env"
+    env_path = Path(__file__).resolve().parents[2] / ".env"
     load_dotenv(dotenv_path=env_path, override=False)
     api_key = os.environ.get("XAI_API_KEY")
     if not api_key:

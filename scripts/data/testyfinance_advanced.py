@@ -7,15 +7,22 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-from yfinance_tools import get_price_history, get_price_history_advanced
+from trading_pipeline.financial.yfinance_tools import (
+    get_price_history,
+    get_price_history_advanced,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def save(symbol: str, history, suffix: str, folder: str = "price_history") -> str | None:
+def save(symbol: str, history, suffix: str, folder: str | None = None) -> str | None:
     try:
-        os.makedirs(folder, exist_ok=True)
+        target_folder = folder or str(REPO_ROOT / "price_history")
+        os.makedirs(target_folder, exist_ok=True)
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        path = os.path.join(folder, f"{symbol}_history_{ts}{suffix}.csv")
+        path = os.path.join(target_folder, f"{symbol}_history_{ts}{suffix}.csv")
         history.to_csv(path, index=True)
         print(f"  saved: {path}")
         return path

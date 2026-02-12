@@ -4,6 +4,7 @@ Cette documentation sert de base “ultra propre” (texte + liens) pour cadrer 
 
 ## Pages
 
+- [Tutoriel V2 (pas à pas)](tutorial_v2.md)
 - [Setup local](setup.md)
 - [Sécurité](security.md)
 - [Coûts API](api_costs.md)

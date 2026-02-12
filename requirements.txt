@@ -4,3 +4,4 @@ xai-sdk
 pytz
 tavily-python
 yfinance
+streamlit

@@ -2,7 +2,7 @@
 Exemple minimal pour tester la pertinence du web search avec Tavily.
 
 Usage rapide:
-    python tavily_search_example.py \
+    python scripts/data/tavily_search_example.py \
       --query "S&P 500 market drivers today" \
       --topic finance \
       --time-range day \
@@ -27,8 +27,12 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 
-def _load_env(script_dir: Path) -> None:
-    env_path = script_dir / ".env"
+def _repo_root(script_path: Path) -> Path:
+    return script_path.resolve().parents[2]
+
+
+def _load_env(repo_root: Path) -> None:
+    env_path = repo_root / ".env"
     load_dotenv(dotenv_path=env_path, override=False)
 
 
@@ -160,8 +164,9 @@ def main() -> None:
     if args.max_results < 0 or args.max_results > 20:
         raise ValueError("--max-results doit être entre 0 et 20.")
 
-    script_dir = Path(__file__).resolve().parent
-    _load_env(script_dir)
+    script_path = Path(__file__)
+    root = _repo_root(script_path)
+    _load_env(root)
 
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
@@ -213,10 +218,10 @@ def main() -> None:
         print(str(answer).strip())
 
     if args.out:
-        out_path = args.out if args.out.is_absolute() else (script_dir / args.out)
+        out_path = args.out if args.out.is_absolute() else (root / args.out)
     else:
         ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        out_path = script_dir / f"tavily_search_{ts}.json"
+        out_path = root / "responses" / "tavily_search" / f"tavily_search_{ts}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(response, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nRéponse brute sauvegardée dans: {out_path}")

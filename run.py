@@ -10,7 +10,8 @@ Objectif:
     - Les détails restent dans les fichiers `.txt` générés.
 
 Pré-requis:
-    - Variables d'env: `XAI_API_KEY` (et, optionnellement, clés Alpaca si `--fetch-prices`).
+    - Variables d'env: `XAI_API_KEY` + `TAVILY_API_KEY`
+      (et, optionnellement, clés Alpaca si `--fetch-prices`).
 
 Notes:
     - Ce script ne crée pas d'ordres (il ne fait que orchestrer recherche + trader).
@@ -25,6 +26,8 @@ import re
 import shlex
 import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -103,6 +106,21 @@ def _run(cmd: list[str], *, verbose: bool) -> None:
             print("\n--- stderr (tail) ---")
             print("\n".join(stderr.splitlines()[-30:]))
         raise
+
+
+def _sleep_between_runs(interval_seconds: int) -> None:
+    """
+    Attend l'intervalle demandé entre deux cycles de run.
+
+    Paramètres:
+        interval_seconds: Durée d'attente en secondes.
+    """
+    if interval_seconds <= 0:
+        return
+    next_run = datetime.now().timestamp() + interval_seconds
+    next_run_str = datetime.fromtimestamp(next_run).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[Workflow] next run in {interval_seconds}s (at {next_run_str})")
+    time.sleep(interval_seconds)
 
 
 def _ensure_non_empty_file(path: Path, label: str) -> Path:
@@ -400,7 +418,25 @@ def main() -> None:
         action="store_true",
         help="Affiche les commandes exécutées et la sortie des sous-scripts.",
     )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="(Option conservée) Exécute le workflow en continu jusqu'à interruption utilisateur (Ctrl+C).",
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Exécute un seul cycle puis quitte (désactive le mode boucle par défaut).",
+    )
+    parser.add_argument(
+        "--interval-seconds",
+        type=int,
+        default=300,
+        help="Intervalle entre deux runs quand `--loop` est activé (défaut: 300).",
+    )
     args = parser.parse_args()
+    if args.interval_seconds <= 0:
+        raise ValueError("--interval-seconds doit être > 0.")
 
     root = Path(__file__).resolve().parent
     responses_dir = _resolve_repo_path(args.responses_dir, repo_root=root)
@@ -421,7 +457,7 @@ def main() -> None:
         else None
     )
 
-    try:
+    def _run_once() -> None:
         # --- Step 1: recherche ---
         if research_report_arg:
             research_report = _ensure_non_empty_file(research_report_arg, "Report recherche")
@@ -477,9 +513,10 @@ def main() -> None:
         print("\n=== Outputs ===")
         print(f"- Research report: {research_report}")
         print(f"- Trader report: {trader_report}")
-    except Exception as exc:
+
+    def _print_failure(exc: Exception) -> None:
         if args.verbose:
-            raise
+            raise exc
         print(f"\nWorkflow FAILED: {exc}")
         if isinstance(exc, FileNotFoundError):
             print(
@@ -487,7 +524,35 @@ def main() -> None:
                 f"(responses={responses_dir}, reflex_trader={reflex_dir}) "
                 "ou relance sans --skip-research/--skip-trader."
             )
-        raise SystemExit(1)
+    loop_mode = not args.once
+
+    if not loop_mode:
+        try:
+            _run_once()
+            return
+        except Exception as exc:
+            _print_failure(exc)
+            raise SystemExit(1)
+
+    print(
+        "[Workflow] loop mode active "
+        f"(interval={args.interval_seconds}s). Press Ctrl+C to stop."
+    )
+    cycle = 0
+    try:
+        while True:
+            cycle += 1
+            started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"\n[Workflow] cycle #{cycle} started at {started_at}")
+            try:
+                _run_once()
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                _print_failure(exc)
+            _sleep_between_runs(args.interval_seconds)
+    except KeyboardInterrupt:
+        print("\n[Workflow] interrupted by user. Loop stopped.")
 
 
 if __name__ == "__main__":
