@@ -202,8 +202,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--auto-confirm-orders",
+        "--auto-accept-orders",
+        dest="auto_confirm_orders",
         action="store_true",
-        help="Bypass la confirmation interactive avant envoi des ordres Alpaca.",
+        help=(
+            "Bypass la confirmation interactive avant envoi des ordres Alpaca "
+            "(alias: --auto-accept-orders)."
+        ),
     )
     parser.add_argument(
         "--loop",

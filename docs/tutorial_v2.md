@@ -188,7 +188,7 @@ Pour un run non-interactif (CI/automation), bypass de confirmation:
   --query "S&P 500 market drivers today" \
   --financial-provider yahoo \
   --execute-orders \
-  --auto-confirm-orders \
+  --auto-accept-orders \
   --once
 ```
 
