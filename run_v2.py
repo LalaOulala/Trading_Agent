@@ -159,7 +159,22 @@ def main() -> None:
         "--web-max-results",
         type=int,
         default=8,
-        help="Nombre max de résultats web (0..20).",
+        help="Nombre max de résultats web pour la requête principale Tavily (1..20).",
+    )
+    parser.add_argument(
+        "--web-max-follow-up-queries",
+        type=int,
+        default=3,
+        help=(
+            "Nombre max de requêtes Tavily contextuelles supplémentaires "
+            "(défaut: 3, 0 pour désactiver)."
+        ),
+    )
+    parser.add_argument(
+        "--web-follow-up-max-results",
+        type=int,
+        default=5,
+        help="Nombre max de résultats par requête Tavily contextuelle (1..20).",
     )
     parser.add_argument(
         "--web-include-domains",
@@ -236,8 +251,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.web_max_results < 0 or args.web_max_results > 20:
-        raise ValueError("--web-max-results doit être entre 0 et 20.")
+    if args.web_max_results < 1 or args.web_max_results > 20:
+        raise ValueError("--web-max-results doit être entre 1 et 20.")
+    if args.web_max_follow_up_queries < 0:
+        raise ValueError("--web-max-follow-up-queries doit être >= 0.")
+    if args.web_follow_up_max_results < 1 or args.web_follow_up_max_results > 20:
+        raise ValueError("--web-follow-up-max-results doit être entre 1 et 20.")
     if args.interval_seconds <= 0:
         raise ValueError("--interval-seconds doit être > 0.")
 
@@ -260,6 +279,8 @@ def main() -> None:
         search_depth=args.web_search_depth,
         time_range=args.web_time_range,
         max_results=args.web_max_results,
+        max_follow_up_queries=args.web_max_follow_up_queries,
+        follow_up_max_results=args.web_follow_up_max_results,
         include_domains=_split_csv(args.web_include_domains),
         exclude_domains=_split_csv(args.web_exclude_domains),
         include_answer=False,

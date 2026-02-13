@@ -8,6 +8,10 @@ Entrées:
 - Un snapshot du portefeuille actions (positions + métriques).
 - Une analyse des derniers jours (peut être absente pour l’instant).
 
+Règle de contexte:
+- Le snapshot financier fourni (compte + positions + buying power) doit être considéré
+  comme une contrainte active à chaque étape de ton raisonnement.
+
 Ta tâche:
 1) Identifier ce qui manque comme **données de marché (prix)** pour mieux comprendre / valider une hypothèse. Priorité:
    - d’abord les actifs **déjà en portefeuille**,
@@ -23,6 +27,12 @@ Contraintes:
 - Les tickers doivent être plausibles, courts, en MAJUSCULES, sans espace.
 - Si le snapshot portefeuille n’est pas disponible, base-toi surtout sur les reports.
 - Style: direct, orienté décision, mais prudent.
+
+Diversification (biais léger, pas une contrainte rigide):
+- Favorise une liste de symboles **légèrement diversifiée** plutôt qu'une concentration forte sur un seul thème/titre.
+- Quand le contexte le permet, couvre idéalement au moins **2 poches de risque** différentes (ex: index large + secteur, ou mégacaps + défensives).
+- Évite de proposer une liste où la quasi-totalité des symboles exprime exactement le même risque directionnel, sauf si le contexte macro impose clairement ce biais.
+- Si tu assumes volontairement une concentration, explicite brièvement pourquoi dans `conclusion` (signal dominant, conviction, absence d'alternative propre).
 
 Sortie:
 - Respecte strictement le format demandé dans le prompt de présentation (JSON uniquement).

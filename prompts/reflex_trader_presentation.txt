@@ -20,4 +20,6 @@ Règles:
 - `requested_market_data` peut être vide si rien n'est nécessaire.
 - `fields` doit contenir des identifiants simples (strings) et rester court (2–4 items).
 - `symbol` doit être un ticker **action US** en MAJUSCULES, sans espace.
+- Dans `conclusion`, indique brièvement si la sélection est plutôt diversifiée ou concentrée, et pourquoi.
+- Dans `conclusion`, mentionne aussi toute contrainte financière visible dans le snapshot (cash, buying power, exposition).
 - La conclusion doit finir par: "Info seulement, pas un conseil en investissement."

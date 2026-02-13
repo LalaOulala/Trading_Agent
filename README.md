@@ -118,7 +118,10 @@ Comportement:
 - `--interval-seconds`: pause entre cycles en mode boucle (défaut `300`).
 - `--once`: force un seul cycle puis sortie.
 - `--stop-if-market-closed`: check Alpaca clock avant cycle; quitte si marché fermé.
-- `--web-topic`, `--web-time-range`, `--web-max-results`, `--web-include-domains`, `--web-exclude-domains`: réglages de la collecte Tavily.
+- `--web-max-results`: résultats de la requête Tavily principale (1..20).
+- `--web-max-follow-up-queries`: nombre de requêtes Tavily contextuelles supplémentaires (défaut `3`, `0` pour désactiver).
+- `--web-follow-up-max-results`: résultats par requête contextuelle Tavily (1..20).
+- `--web-topic`, `--web-time-range`, `--web-include-domains`, `--web-exclude-domains`: réglages de la collecte Tavily.
 
 ### 7) Artefacts et logs
 
@@ -135,6 +138,7 @@ Le résumé terminal affiche notamment:
 
 Symptôme typique:
 - `APIError: {"code":40310000,"message":"account is not allowed to short"}`
+- `BadRequestError: Invalid max results` (Tavily): vérifier `--web-max-results` et `--web-follow-up-max-results` (doivent être entre `1` et `20`).
 
 Diagnostic du compte actif:
 

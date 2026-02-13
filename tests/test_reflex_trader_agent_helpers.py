@@ -7,6 +7,7 @@ from unittest.mock import patch
 from reflex_trader_agent import (
     _extract_json_object,
     _load_portfolio_snapshot,
+    _normalize_reasoning_effort,
     _normalize_us_equity_symbol,
 )
 
@@ -32,6 +33,12 @@ class ReflexTraderHelpersTests(unittest.TestCase):
         self.assertEqual(_normalize_us_equity_symbol("brk.b"), "BRK.B")
         self.assertIsNone(_normalize_us_equity_symbol("BTC-USD"))
         self.assertIsNone(_normalize_us_equity_symbol("TOO_LONG_TICKER"))
+
+    def test_normalize_reasoning_effort(self) -> None:
+        self.assertEqual(_normalize_reasoning_effort("high"), "high")
+        self.assertEqual(_normalize_reasoning_effort("LOW"), "low")
+        self.assertEqual(_normalize_reasoning_effort("invalid"), "high")
+        self.assertEqual(_normalize_reasoning_effort(None), "high")
 
     def test_load_portfolio_snapshot_missing_credentials(self) -> None:
         with patch.dict(os.environ, {}, clear=True):

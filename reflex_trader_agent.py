@@ -31,7 +31,8 @@ from xai_sdk import Client
 from xai_sdk.chat import system, user
 
 
-DEFAULT_MODEL = "grok-4-1-fast"
+DEFAULT_REASONING_MODEL = "grok-4-1-fast-reasoning-latest"
+DEFAULT_REASONING_EFFORT = "high"
 DEFAULT_MAX_TOKENS = 1200
 MAX_REQUESTED_SYMBOLS = 10
 
@@ -204,11 +205,23 @@ def _load_portfolio_snapshot() -> dict[str, Any]:
         "account": {
             "status": getattr(account, "status", None),
             "equity": getattr(account, "equity", None),
+            "last_equity": getattr(account, "last_equity", None),
             "cash": getattr(account, "cash", None),
             "buying_power": getattr(account, "buying_power", None),
+            "daytrading_buying_power": getattr(account, "daytrading_buying_power", None),
+            "shorting_enabled": getattr(account, "shorting_enabled", None),
+            "multiplier": getattr(account, "multiplier", None),
+            "portfolio_value": getattr(account, "portfolio_value", None),
         },
         "positions": [_pos_to_dict(p) for p in positions],
     }
+
+
+def _normalize_reasoning_effort(raw: str | None) -> str:
+    value = (raw or "").strip().lower()
+    if value not in {"low", "high"}:
+        return DEFAULT_REASONING_EFFORT
+    return value
 
 
 def _load_latest_reports(responses_dir: Path, count: int) -> list[Report]:
@@ -421,8 +434,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("REFLEX_TRADER_MODEL", DEFAULT_MODEL),
-        help="Modèle xAI à utiliser (défaut: grok-4-1-fast).",
+        default=os.environ.get("REFLEX_TRADER_MODEL", DEFAULT_REASONING_MODEL),
+        help="Modèle xAI à utiliser (défaut: grok-4-1-fast-reasoning-latest).",
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        choices=["low", "high"],
+        default=os.environ.get("REFLEX_TRADER_REASONING_EFFORT", DEFAULT_REASONING_EFFORT),
+        help="Effort de raisonnement xAI (défaut: high).",
     )
     parser.add_argument(
         "--max-tokens",
@@ -503,8 +522,13 @@ Analyse des derniers jours :
 {analysis_text}
 """.strip()
 
+    reasoning_effort = _normalize_reasoning_effort(args.reasoning_effort)
     client = Client(api_key=api_key)
-    chat = client.chat.create(model=args.model, max_tokens=args.max_tokens)
+    chat = client.chat.create(
+        model=args.model,
+        max_tokens=args.max_tokens,
+        reasoning_effort=reasoning_effort,
+    )
     chat.append(system(redaction_prompt))
     chat.append(user(user_prompt))
     response = chat.sample()

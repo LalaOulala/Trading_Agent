@@ -17,12 +17,16 @@ Pré-requis:
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
+from alpaca.trading.client import TradingClient
 from xai_sdk import Client
 from xai_sdk.chat import system, user
 from xai_sdk.tools import x_search
@@ -30,7 +34,8 @@ from xai_sdk.tools import x_search
 from trading_pipeline.collectors.tavily_web import TavilyWebCollector
 
 
-MODEL = "grok-4-1-fast"  # modèle volontairement en dur
+DEFAULT_MODEL = "grok-4-1-fast-reasoning-latest"
+DEFAULT_REASONING_EFFORT = "high"
 MAX_TURNS = 2  # garde-fou coûts: x_search + rédaction
 MAX_TOKENS = 1600  # garde-fou coûts: limite la taille de la réponse
 X_LOOKBACK_HOURS = 24
@@ -55,6 +60,92 @@ MAX_TAVILY_SNIPPET_CHARS = 320
 PROMPTS_DIRNAME = "prompts"
 REDACTION_PROMPT_FILENAME = "redaction.txt"
 PRESENTATION_PROMPT_FILENAME = "presentation.txt"
+
+
+def _get_env_value(names: list[str]) -> str | None:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _get_paper_flag() -> bool:
+    raw = os.environ.get("ALPACA_PAPER", "true").strip().lower()
+    return raw not in {"0", "false", "no"}
+
+
+def _get_alpaca_credentials() -> tuple[str | None, str | None]:
+    api_key = _get_env_value(["ALPACA_API_KEY", "APCA_API_KEY_ID"])
+    api_secret = _get_env_value(
+        ["ALPACA_API_SECRET", "ALPACA_SECRET", "APCA_API_SECRET_KEY"]
+    )
+    return api_key, api_secret
+
+
+def _load_financial_snapshot() -> dict[str, Any]:
+    """
+    Charge un snapshot financier de référence (compte + positions) via Alpaca.
+
+    Le snapshot est injecté dans le prompt Grok pour contextualiser les choix
+    d'investigation (x_search) et la conclusion.
+    """
+    api_key, api_secret = _get_alpaca_credentials()
+    if not api_key or not api_secret:
+        return {
+            "source": "alpaca",
+            "available": False,
+            "reason": "Credentials Alpaca manquants (ALPACA_API_KEY/ALPACA_API_SECRET).",
+        }
+
+    paper = _get_paper_flag()
+    try:
+        client = TradingClient(api_key=api_key, secret_key=api_secret, paper=paper)
+        account = client.get_account()
+        positions = client.get_all_positions()
+    except Exception as exc:
+        return {
+            "source": "alpaca",
+            "available": False,
+            "paper": paper,
+            "reason": f"Snapshot Alpaca indisponible ({type(exc).__name__}: {exc}).",
+        }
+
+    def _position_payload(pos: Any) -> dict[str, Any]:
+        return {
+            "symbol": getattr(pos, "symbol", None),
+            "qty": getattr(pos, "qty", None),
+            "side": str(getattr(pos, "side", "")),
+            "avg_entry_price": getattr(pos, "avg_entry_price", None),
+            "market_value": getattr(pos, "market_value", None),
+            "unrealized_pl": getattr(pos, "unrealized_pl", None),
+            "unrealized_plpc": getattr(pos, "unrealized_plpc", None),
+        }
+
+    return {
+        "source": "alpaca",
+        "available": True,
+        "paper": paper,
+        "account": {
+            "status": getattr(account, "status", None),
+            "equity": getattr(account, "equity", None),
+            "last_equity": getattr(account, "last_equity", None),
+            "cash": getattr(account, "cash", None),
+            "buying_power": getattr(account, "buying_power", None),
+            "shorting_enabled": getattr(account, "shorting_enabled", None),
+            "multiplier": getattr(account, "multiplier", None),
+            "daytrading_buying_power": getattr(account, "daytrading_buying_power", None),
+            "portfolio_value": getattr(account, "portfolio_value", None),
+        },
+        "positions": [_position_payload(pos) for pos in positions],
+    }
+
+
+def _normalize_reasoning_effort(raw: str | None) -> str:
+    value = (raw or "").strip().lower()
+    if value not in {"low", "high"}:
+        return DEFAULT_REASONING_EFFORT
+    return value
 
 
 def _load_env(script_dir: Path) -> None:
@@ -205,6 +296,27 @@ def main() -> None:
     Exceptions:
         RuntimeError: si `XAI_API_KEY` ou les prompts ne sont pas disponibles.
     """
+    parser = argparse.ArgumentParser(
+        description="Conclusion marché (Tavily + x_search) avec snapshot financier contextuel."
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help=(
+            "Modèle xAI à utiliser (défaut: "
+            "REPORT_MODEL env, sinon grok-4-1-fast-reasoning-latest)."
+        ),
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        choices=["low", "high"],
+        default=None,
+        help=(
+            "Effort de raisonnement xAI (défaut: REPORT_REASONING_EFFORT env, sinon high)."
+        ),
+    )
+    args = parser.parse_args()
+
     script_dir = Path(__file__).resolve().parent
     _load_env(script_dir)
 
@@ -218,6 +330,11 @@ def main() -> None:
         raise RuntimeError(
             "Définis `TAVILY_API_KEY` dans `.env` (ou dans ton shell) avant de lancer ce script."
         )
+
+    model = (args.model or os.getenv("REPORT_MODEL") or DEFAULT_MODEL).strip()
+    reasoning_effort = _normalize_reasoning_effort(
+        args.reasoning_effort or os.getenv("REPORT_REASONING_EFFORT")
+    )
 
     client = Client(api_key=xai_api_key)
 
@@ -246,6 +363,7 @@ def main() -> None:
         raise RuntimeError(
             f"Collecte web Tavily impossible ({type(exc).__name__}: {exc})"
         ) from exc
+    financial_snapshot = _load_financial_snapshot()
 
     user_prompt = f"""
 {presentation_prompt}
@@ -256,12 +374,15 @@ Informations utiles (pour remplir le titre et cadrer le périmètre) :
 - Fenêtre X : dernières {X_LOOKBACK_HOURS}h (de {from_date.strftime("%Y-%m-%d %H:%M UTC")} à {now_utc})
 - Web query Tavily: {TAVILY_QUERY}
 
+Snapshot financier (toujours à prendre en compte dans la réflexion) :
+{json.dumps(financial_snapshot, indent=2, ensure_ascii=False)}
+
 Données web (Tavily, base factuelle prioritaire) :
 {tavily_context}
 """.strip()
 
     chat = client.chat.create(
-        model=MODEL,
+        model=model,
         tools=[
             x_search(from_date=from_date, to_date=now),
         ],
@@ -269,6 +390,7 @@ Données web (Tavily, base factuelle prioritaire) :
         parallel_tool_calls=False,
         max_turns=MAX_TURNS,
         max_tokens=MAX_TOKENS,
+        reasoning_effort=reasoning_effort,
     )
     chat.append(system(redaction_prompt))
     chat.append(user(user_prompt))
@@ -295,13 +417,15 @@ Données web (Tavily, base factuelle prioritaire) :
     debug_path.write_text(
         "\n".join(
             [
-                f"Model: {MODEL}",
+                f"Model: {model}",
+                f"Reasoning effort: {reasoning_effort}",
                 f"Local: {now_local_str}",
                 f"UTC: {now_utc}",
                 f"Prompts: {redaction_prompt_path}, {presentation_prompt_path}",
                 f"Tavily query: {TAVILY_QUERY}",
                 f"Tavily config: topic={TAVILY_TOPIC}, depth={TAVILY_SEARCH_DEPTH}, "
                 f"time_range={TAVILY_TIME_RANGE}, max_results={TAVILY_MAX_RESULTS}",
+                f"Financial snapshot: {financial_snapshot}",
                 f"Tavily notes: {tavily_notes}",
                 f"Tavily URLs: {tavily_urls}",
                 f"Usage: {response.usage}",
