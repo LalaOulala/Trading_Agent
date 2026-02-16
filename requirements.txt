@@ -5,3 +5,5 @@ pytz
 tavily-python
 yfinance
 streamlit
+discord.py
+Flask

@@ -1,0 +1,541 @@
+@startuml
+title Trading Agent - Diagramme de classes (Python)
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+hide empty members
+
+package "reflex_trader_agent" {
+  class "Report" as C1 <<dataclass>> {
+    +content: str
+    +path: Path
+  }
+}
+
+package "scripts.generate_class_diagram" {
+  class "ClassInfo" as C2 <<dataclass>> {
+    +attributes: dict[str, str]
+    +bases: list[str]
+    +decorators: set[str]
+    +file_path: Path
+    +full_name: str
+    +methods: list[str]
+    +module: str
+    +name: str
+    +is_abstract()
+    +stereotype()
+  }
+  class "ModuleInfo" as C3 <<dataclass>> {
+    +imports: dict[str, str]
+    +module: str
+  }
+}
+
+package "scripts.smoke.alpaca_api_test" {
+  class "AlpacaApiTester" as C4 <<dataclass>> {
+    +api_key: str
+    +api_secret: str
+    +paper: bool
+    +run()
+  }
+}
+
+package "tests.test_alpaca_executor" {
+  class "AlpacaExecutorTests" as C5 {
+    +test_execute_live_allows_sell_to_close_existing_long()
+    +test_execute_live_auto_confirm_bypasses_prompt()
+    +test_execute_live_blocks_sell_when_it_would_open_short()
+    +test_execute_live_cancelled_when_confirmation_is_not_yes()
+    +test_execute_live_skips_when_market_is_closed()
+    +test_execute_live_submits_when_user_confirms_yes()
+  }
+  class "_ClosedMarketExecutor" as C6 {
+    +_check_market_open()
+    +_submit_orders()
+  }
+  class "_NoSubmitExecutor" as C7 {
+    +_check_market_open()
+    +_load_portfolio_snapshot()
+    +_submit_orders()
+  }
+  class "_StubSubmitExecutor" as C8 {
+    +_check_market_open()
+    +_load_portfolio_snapshot()
+    +_submit_orders()
+  }
+}
+
+package "tests.test_compile" {
+  class "CompilationTests" as C9 {
+    +test_project_python_files_compile()
+  }
+}
+
+package "tests.test_dashboard_data" {
+  class "DashboardDataTests" as C10 {
+    +test_build_agent_histories_creates_rows_for_each_agent()
+    +test_build_orders_history_extracts_detail_rows()
+    +test_extract_timing_metrics()
+    +test_load_artifact_records_sorted_desc()
+  }
+}
+
+package "tests.test_file_browser" {
+  class "FileBrowserTests" as C11 {
+    +test_format_file_button_label()
+    +test_list_log_files_sorts_by_eurodated_timestamp()
+    +test_parse_json_text()
+    +test_read_text_file_truncates()
+  }
+}
+
+package "tests.test_grok_tools_helpers" {
+  class "GrokToolsHelpersTests" as C12 {
+    +test_load_financial_snapshot_handles_alpaca_errors()
+    +test_load_financial_snapshot_missing_credentials()
+    +test_load_financial_snapshot_success()
+    +test_load_terminal_history_returns_recent_events()
+    +test_load_trade_history_returns_recent_events()
+    +test_normalize_reasoning_effort()
+  }
+}
+
+package "tests.test_pipeline_follow_up_queries" {
+  class "PipelineFollowUpQueriesTests" as C13 {
+    +test_pipeline_executes_agent_follow_up_queries()
+  }
+  class "_FreshCollectorWithExtra" as C14 {
+    +collect()
+    +collect_additional_web()
+  }
+  class "_PreAgentWithFollowUps" as C15 {
+    +get_follow_up_web_queries()
+    +run()
+  }
+}
+
+package "tests.test_pipeline_v2" {
+  class "PipelineV2Tests" as C16 {
+    +_build_pipeline()
+    +test_pipeline_hold_without_financial_data()
+    +test_pipeline_long_and_dry_run()
+  }
+  class "_StubSocialCollector" as C17 {
+    +collect()
+  }
+  class "_StubWebCollector" as C18 {
+    +collect()
+  }
+}
+
+package "tests.test_reasoning_agents_helpers" {
+  class "ReasoningAgentsHelpersTests" as C19 {
+    +test_guard_blocks_orders_after_insufficient_buying_power()
+    +test_guard_filters_sell_when_short_not_allowed()
+    +test_latest_api_error_message_returns_last_error()
+  }
+}
+
+package "tests.test_reflex_trader_agent_helpers" {
+  class "ReflexTraderHelpersTests" as C20 {
+    +test_extract_json_object_parses_with_noise()
+    +test_extract_json_object_raises_explicit_decode_error()
+    +test_extract_json_object_raises_explicit_error()
+    +test_load_portfolio_snapshot_handles_alpaca_errors()
+    +test_load_portfolio_snapshot_missing_credentials()
+    +test_load_terminal_history_returns_recent_events()
+    +test_load_trade_history_returns_recent_events()
+    +test_normalize_reasoning_effort()
+    +test_normalize_us_equity_symbol()
+  }
+}
+
+package "tests.test_run_helpers" {
+  class "RunHelpersTests" as C21 {
+    +test_ensure_non_empty_file_errors_for_missing_or_empty()
+    +test_extract_first_object_with_keys()
+    +test_extract_json_objects_skips_invalid_blocks()
+    +test_latest_research_report_picks_latest_non_empty()
+    +test_latest_trader_report_picks_latest_non_empty()
+    +test_resolve_repo_path()
+  }
+}
+
+package "tests.test_run_v2_market_hours" {
+  class "RunV2MarketHoursTests" as C22 {
+    +test_coerce_utc_handles_naive_and_aware()
+    +test_format_duration()
+    +test_market_closed_message_contains_remaining_time()
+  }
+}
+
+package "tests.test_runtime_history" {
+  class "RuntimeHistoryTests" as C23 {
+    +test_append_and_load_recent_events()
+    +test_load_recent_handles_missing_file_or_zero_limit()
+    +test_load_recent_respects_limit_and_skips_invalid_lines()
+  }
+}
+
+package "tests.test_session_markdown" {
+  class "SessionMarkdownLoggerTests" as C24 {
+    +test_logger_writes_session_markdown()
+  }
+}
+
+package "tests.test_tavily_search_example" {
+  class "TavilySearchExampleTests" as C25 {
+    +test_build_search_kwargs()
+    +test_build_search_kwargs_omits_optional_fields()
+    +test_domain()
+    +test_split_csv()
+    +test_trusted_hits()
+  }
+}
+
+package "tests.test_tavily_web_collector" {
+  class "TavilyWebCollectorTests" as C26 {
+    +test_build_follow_up_queries_detects_symbols_and_themes()
+    +test_collect_continues_when_follow_up_fails()
+    +test_collect_executes_follow_up_queries_and_deduplicates_urls()
+    +test_collect_rejects_invalid_max_results()
+  }
+  class "_StubTavilyCollector" as C27 {
+    +calls: list[tuple[str, int]]
+    +_build_follow_up_queries()
+    +_make_client()
+    +_search()
+  }
+}
+
+package "tests.test_trade_history" {
+  class "TradeHistoryTests" as C28 {
+    +test_append_and_load_recent_events()
+    +test_load_handles_missing_file_or_zero_limit()
+    +test_load_respects_limit_and_ignores_invalid_json()
+  }
+}
+
+package "tests.test_workflow_runner" {
+  class "WorkflowRunnerTests" as C29 {
+    +test_build_run_command_adds_market_guard_in_live_mode()
+    +test_build_run_command_omits_live_flags_when_not_live()
+    +test_evaluate_run_feedback_detects_execution_error()
+    +test_evaluate_run_feedback_detects_market_closed()
+    +test_evaluate_run_feedback_detects_shell_error()
+    +test_is_market_closed_message()
+  }
+}
+
+package "tests.test_yahoo_pool_provider" {
+  class "YahooPoolProviderTests" as C30 {
+    +test_fetch_marks_missing_symbol()
+    +test_fetch_with_data()
+  }
+}
+
+package "tests.test_yfinance_tools" {
+  class "YFinanceToolsTests" as C31 {
+    +test_calculate_technical_indicators()
+    +test_get_current_price_prefers_info()
+    +test_get_price_history_accepts_interval()
+    +test_get_price_history_advanced()
+    +test_get_price_history_returns_none_when_empty()
+  }
+  class "_StubTicker" as C32 {
+    +history()
+  }
+}
+
+package "trading_pipeline.agents.final_trader" {
+  class "FinalTraderAgent" as C33 <<dataclass>> {
+    +order_qty: float
+    +run()
+  }
+}
+
+package "trading_pipeline.agents.focus_trader" {
+  class "FocusTraderAgent" as C34 <<dataclass>> {
+    +max_focus_symbols: int
+    +run()
+  }
+}
+
+package "trading_pipeline.agents.pre_analysis" {
+  class "PreAnalysisAgent" as C35 <<dataclass>> {
+    +max_candidate_symbols: int
+    +run()
+  }
+}
+
+package "trading_pipeline.agents.reasoning_agents" {
+  class "ReasoningFinalTraderAgent" as C36 <<dataclass>> {
+    +fallback_agent: Any
+    +order_qty: float
+    +run()
+  }
+  class "ReasoningFocusTraderAgent" as C37 <<dataclass>> {
+    +fallback_agent: Any
+    +max_focus_symbols: int
+    +run()
+  }
+  class "ReasoningPreAnalysisAgent" as C38 <<dataclass>> {
+    +_last_follow_up_queries: list[str] | None
+    +fallback_agent: Any
+    +max_candidate_symbols: int
+    +max_follow_up_queries: int
+    +get_follow_up_web_queries()
+    +run()
+  }
+  class "_ReasoningAgentBase" as C39 <<dataclass>> {
+    +_last_trace: dict[str, Any] | None
+    +api_key: str
+    +history_limit: int
+    +max_tokens: int
+    +model: str
+    +reasoning_effort: str
+    +runtime_history_file: Any
+    +trade_history_file: Any
+    +_chat()
+    +_load_histories()
+    +get_last_trace()
+  }
+}
+
+package "trading_pipeline.collectors.base" {
+  class "CollectorResult" as C40 <<dataclass>> {
+    +notes: list[str]
+    +signals: list[FreshSignal]
+  }
+  class "FreshDataCollector" as C41 <<abstract>> {
+    +collect()
+  }
+  class "SocialCollector" as C42 <<abstract>> {
+    +collect()
+  }
+  class "WebCollector" as C43 <<abstract>> {
+    +collect()
+  }
+}
+
+package "trading_pipeline.collectors.fresh_data_hub" {
+  class "FreshDataHub" as C44 <<dataclass>> {
+    +social_collector: SocialCollector
+    +web_collector: WebCollector
+    +collect()
+    +collect_additional_web()
+  }
+}
+
+package "trading_pipeline.collectors.tavily_web" {
+  class "TavilyWebCollector" as C45 <<dataclass>> {
+    +api_key: str
+    +exclude_domains: list[str] | None
+    +follow_up_max_results: int
+    +include_answer: bool
+    +include_domains: list[str] | None
+    +include_raw_content: str
+    +max_follow_up_queries: int
+    +max_results: int
+    +search_depth: str
+    +time_range: str
+    +topic: str
+    +_build_follow_up_queries()
+    +_build_search_kwargs()
+    +_extract_symbol_candidates()
+    +_extract_theme_candidates()
+    +_make_client()
+    +_parse_response()
+    +_search()
+    +_short()
+    +_signal_dedup_key()
+    +_validate_max_results()
+    +collect()
+  }
+}
+
+package "trading_pipeline.collectors.x_social" {
+  class "XPlaceholderCollector" as C46 <<dataclass>> {
+    +cache_file: Path | None
+    +collect()
+  }
+}
+
+package "trading_pipeline.config" {
+  class "PipelineConfig" as C47 <<dataclass>> {
+    +alpaca_api_key: str | None
+    +alpaca_api_secret: str | None
+    +alpaca_paper: bool
+    +execute_orders: bool
+    +max_candidate_symbols: int
+    +max_focus_symbols: int
+    +output_dir: Path
+    +tavily_api_key: str | None
+    +xai_api_key: str | None
+    +from_env()
+  }
+}
+
+package "trading_pipeline.context.session_markdown" {
+  class "SessionMarkdownLogger" as C48 <<dataclass>> {
+    +session_file: Path
+    +_append()
+    +finalize()
+    +log_agent_trace()
+    +log_cli_message()
+    +log_cycle_artifact()
+    +start_new()
+  }
+}
+
+package "trading_pipeline.execution.alpaca_executor" {
+  class "AlpacaTradeExecutor" as C49 <<dataclass>> {
+    +api_key: str | None
+    +api_secret: str | None
+    +execute_live: bool
+    +paper: bool
+    +require_confirmation: bool
+    +_available_long_qty_by_symbol()
+    +_check_market_open()
+    +_confirm_submission()
+    +_filter_short_blocked_orders()
+    +_load_portfolio_snapshot()
+    +_market_closed_message()
+    +_normalize_orders()
+    +_submit_orders()
+    +execute()
+  }
+}
+
+package "trading_pipeline.execution.base" {
+  class "TradeExecutor" as C50 <<abstract>> {
+    +execute()
+  }
+}
+
+package "trading_pipeline.financial.base" {
+  class "FinancialDataProvider" as C51 <<abstract>> {
+    +fetch()
+  }
+}
+
+package "trading_pipeline.financial.yahoo_placeholder" {
+  class "StaticFinancialDataProvider" as C52 <<dataclass>> {
+    +data: dict[str, dict[str, Any]]
+    +source_name: str
+    +fetch()
+  }
+  class "YahooPlaceholderProvider" as C53 <<dataclass>> {
+    +mock_file: Path | None
+    +source_name: str
+    +_load_mock()
+    +fetch()
+  }
+}
+
+package "trading_pipeline.financial.yahoo_pool" {
+  class "YahooFinancePoolProvider" as C54 <<dataclass>> {
+    +source_name: str
+    +fetch()
+  }
+}
+
+package "trading_pipeline.models" {
+  class "ExecutionReport" as C55 <<dataclass>> {
+    +broker: str
+    +details: list[dict[str, Any]]
+    +message: str
+    +status: Literal['skipped', 'dry_run', 'submitted', 'error']
+  }
+  class "FinalDecision" as C56 <<dataclass>> {
+    +action: Action
+    +confidence: Literal['low', 'medium', 'high']
+    +orders: list[dict[str, Any]]
+    +risk_controls: list[str]
+    +should_execute: bool
+    +symbols: list[str]
+    +thesis: str
+  }
+  class "FinancialSnapshot" as C57 <<dataclass>> {
+    +asof: str
+    +missing_symbols: list[str]
+    +notes: list[str]
+    +source: str
+    +symbols_data: dict[str, dict[str, Any]]
+  }
+  class "FocusSelection" as C58 <<dataclass>> {
+    +questions: list[str]
+    +rationale_by_symbol: dict[str, str]
+    +symbols: list[str]
+  }
+  class "FreshMarketSnapshot" as C59 <<dataclass>> {
+    +generated_at: str
+    +notes: list[str]
+    +social_signals: list[FreshSignal]
+    +web_signals: list[FreshSignal]
+    +empty()
+  }
+  class "FreshSignal" as C60 <<dataclass>> {
+    +metadata: dict[str, Any]
+    +published_at: str | None
+    +score: float | None
+    +snippet: str
+    +source: str
+    +title: str
+    +url: str
+  }
+  class "PreAnalysis" as C61 <<dataclass>> {
+    +candidate_symbols: list[str]
+    +confidence: Literal['low', 'medium', 'high']
+    +key_drivers: list[str]
+    +risks: list[str]
+    +summary: str
+  }
+}
+
+package "trading_pipeline.workflow.market_pipeline" {
+  class "TradingDecisionPipeline" as C62 <<dataclass>> {
+    +executor: TradeExecutor
+    +final_agent: FinalTraderAgent
+    +financial_provider: FinancialDataProvider
+    +focus_agent: FocusTraderAgent
+    +fresh_collector: FreshDataCollector
+    +pre_agent: PreAnalysisAgent
+    +_collect_agent_trace()
+    +_merge_web_signals()
+    +run()
+    +save_artifact()
+  }
+}
+
+C6 --|> C49
+C7 --|> C49
+C8 --|> C49
+C14 --|> C41
+C17 --|> C42
+C18 --|> C43
+C27 --|> C45
+C36 --|> C39
+C37 --|> C39
+C38 --|> C39
+C44 --|> C41
+C45 --|> C43
+C46 --|> C42
+C49 --|> C50
+C52 --|> C51
+C53 --|> C51
+C54 --|> C51
+C40 --> C60 : "signals"
+C44 --> C42 : "social_collector"
+C44 --> C43 : "web_collector"
+C59 --> C60 : "social_signals"
+C59 --> C60 : "web_signals"
+C62 --> C33 : "final_agent"
+C62 --> C34 : "focus_agent"
+C62 --> C35 : "pre_agent"
+C62 --> C41 : "fresh_collector"
+C62 --> C50 : "executor"
+C62 --> C51 : "financial_provider"
+
+@enduml

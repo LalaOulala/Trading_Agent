@@ -33,6 +33,22 @@ run.py              # point d’entrée legacy
 4. Lancer les tests:
    - `.venv/bin/python -m unittest discover -s tests -v`
 
+## Bot Discord (notifications horaires)
+
+Une base de bot Discord est disponible dans `bot/`:
+
+- entrypoint: `.venv/bin/python -m bot`
+- commandes slash: `/ping`, `/status`
+- envoi automatique toutes les `60` minutes (configurable)
+- endpoint Flask keep-alive (`/`) pour Render
+
+Variables minimales dans `.env`:
+
+- `DISCORD_BOT_TOKEN=...`
+- `DISCORD_CHANNEL_ID=...`
+
+Voir `/Users/lala/CascadeProjects/trading_agent1/bot/README.md` pour la configuration complète.
+
 ## Lancer `run_v2.py` (guide complet)
 
 ### 1) Préparer l'environnement
