@@ -41,3 +41,5 @@ reponse_test.txt
 reflex_trader/
 pipeline_runs_v2/
 price_history/
+runtime_history/
+session_transcripts/

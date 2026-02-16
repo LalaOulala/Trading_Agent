@@ -29,11 +29,19 @@ from alpaca.trading.client import TradingClient
 from dotenv import load_dotenv
 from xai_sdk import Client
 from xai_sdk.chat import system, user
+from trading_pipeline.context import (
+    DEFAULT_RUN_V2_TERMINAL_HISTORY_FILE,
+    DEFAULT_RUN_V2_TRADE_HISTORY_FILE,
+    load_recent_runtime_events,
+    load_recent_trade_events,
+)
 
 
 DEFAULT_REASONING_MODEL = "grok-4-1-fast-reasoning-latest"
 DEFAULT_REASONING_EFFORT = "high"
 DEFAULT_MAX_TOKENS = 1200
+DEFAULT_TERMINAL_HISTORY_LIMIT = 15
+DEFAULT_TRADE_HISTORY_LIMIT = 15
 MAX_REQUESTED_SYMBOLS = 10
 
 PROMPTS_DIRNAME = "prompts"
@@ -222,6 +230,26 @@ def _normalize_reasoning_effort(raw: str | None) -> str:
     if value not in {"low", "high"}:
         return DEFAULT_REASONING_EFFORT
     return value
+
+
+def _load_terminal_history(
+    *,
+    history_file: Path,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    return load_recent_runtime_events(history_file, limit=limit)
+
+
+def _load_trade_history(
+    *,
+    history_file: Path,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    return load_recent_trade_events(history_file, limit=limit)
 
 
 def _load_latest_reports(responses_dir: Path, count: int) -> list[Report]:
@@ -460,6 +488,30 @@ def main() -> None:
         default=6000,
         help="Garde-fou: tronque chaque report à N caractères avant envoi au LLM.",
     )
+    parser.add_argument(
+        "--terminal-history-file",
+        type=Path,
+        default=DEFAULT_RUN_V2_TERMINAL_HISTORY_FILE,
+        help="Fichier JSONL des événements terminal run_v2.",
+    )
+    parser.add_argument(
+        "--terminal-history-limit",
+        type=int,
+        default=DEFAULT_TERMINAL_HISTORY_LIMIT,
+        help="Nombre d'événements run_v2 à injecter dans le prompt (défaut: 15).",
+    )
+    parser.add_argument(
+        "--trade-history-file",
+        type=Path,
+        default=DEFAULT_RUN_V2_TRADE_HISTORY_FILE,
+        help="Fichier JSONL des événements transactionnels run_v2.",
+    )
+    parser.add_argument(
+        "--trade-history-limit",
+        type=int,
+        default=DEFAULT_TRADE_HISTORY_LIMIT,
+        help="Nombre d'événements transactionnels run_v2 à injecter dans le prompt (défaut: 15).",
+    )
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -495,6 +547,14 @@ def main() -> None:
     )
 
     portfolio_snapshot = _load_portfolio_snapshot()
+    terminal_history = _load_terminal_history(
+        history_file=args.terminal_history_file,
+        limit=args.terminal_history_limit,
+    )
+    trade_history = _load_trade_history(
+        history_file=args.trade_history_file,
+        limit=args.trade_history_limit,
+    )
 
     analysis_text = "TODO: analyse des derniers jours non implémentée."
     if args.analysis_file:
@@ -517,6 +577,17 @@ Derniers reports (le plus récent en premier) :
 
 Portefeuille actions (snapshot) :
 {json.dumps(portfolio_snapshot, indent=2, ensure_ascii=False)}
+
+Historique terminal run_v2 (inclut erreurs API Alpaca) :
+{json.dumps(terminal_history, indent=2, ensure_ascii=False)}
+
+Historique transactionnel run_v2 (décisions + statuts broker) :
+{json.dumps(trade_history, indent=2, ensure_ascii=False)}
+
+Instruction opérationnelle obligatoire :
+- Vérifie le dernier message d'erreur API broker s'il existe.
+- Explique si cette erreur bloque l'action suivante.
+- Évite de proposer la répétition d'une action qui vient d'échouer.
 
 Analyse des derniers jours :
 {analysis_text}
@@ -574,6 +645,10 @@ Analyse des derniers jours :
     lines.append("Inputs")
     lines.append(f"- Reports: {[str(r.path) for r in reports] if reports else '[]'}")
     lines.append(f"- Portfolio available: {portfolio_snapshot.get('available')}")
+    lines.append(f"- Terminal history loaded: {len(terminal_history)}")
+    lines.append(f"- Terminal history file: {args.terminal_history_file}")
+    lines.append(f"- Trade history loaded: {len(trade_history)}")
+    lines.append(f"- Trade history file: {args.trade_history_file}")
     lines.append(f"- Analysis file: {str(args.analysis_file) if args.analysis_file else '(placeholder)'}")
     lines.append("")
 

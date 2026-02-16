@@ -122,6 +122,14 @@ Comportement:
 - `--web-max-follow-up-queries`: nombre de requêtes Tavily contextuelles supplémentaires (défaut `3`, `0` pour désactiver).
 - `--web-follow-up-max-results`: résultats par requête contextuelle Tavily (1..20).
 - `--web-topic`, `--web-time-range`, `--web-include-domains`, `--web-exclude-domains`: réglages de la collecte Tavily.
+- `--terminal-history-file`: fichier JSONL qui sauvegarde les messages runtime affichés dans le terminal (`run_v2`), incluant les erreurs API broker.
+- `--trade-history-file`: fichier JSONL qui sauvegarde l'historique transactionnel (décision + statut broker + message).
+- `--history-limit`: nombre d'événements récents injectés dans les prompts agents (runtime + transactions).
+- `--reasoning-all-steps` / `--no-reasoning-all-steps`: active/désactive les agents reasoning pre/focus/final.
+- `--reasoning-model`, `--reasoning-effort`, `--reasoning-max-tokens`: réglages xAI pour les agents reasoning.
+- `--agent-follow-up-queries`: nombre max de requêtes Tavily additionnelles proposées par l'agent de pré-analyse.
+- `--session-markdown-dir`: dossier des transcriptions Markdown de session.
+- Historique injecté aux agents Grok/Reflex: les 15 derniers événements runtime + transactions sont ajoutés dans leurs prompts (contexte opérationnel, incluant dernier message d'erreur API broker).
 
 ### 7) Artefacts et logs
 
@@ -189,6 +197,8 @@ Si `shorting_enabled` est `false`:
 
 - `responses/` : rapports de recherche + exports Tavily (`responses/tavily_search/`).
 - `pipeline_runs_v2/` : artefacts JSON complets du workflow V2.
+- `runtime_history/` : événements terminal JSONL + historique transactionnel JSONL (`run_v2`).
+- `session_transcripts/` : transcription Markdown par session `run_v2` (prompts/réponses agents, messages CLI, décisions, exécution).
 - `price_history/` : CSV d'historique Yahoo Finance (scripts de validation).
 - `reflex_trader/` : sorties du flux legacy trader.
 

@@ -11,6 +11,11 @@ Entrées:
 Règle de contexte:
 - Le snapshot financier fourni (compte + positions + buying power) doit être considéré
   comme une contrainte active à chaque étape de ton raisonnement.
+- L'historique terminal run_v2 fourni (avec statuts broker et erreurs API) doit aussi être
+  pris en compte pour éviter de répéter des actions déjà bloquées récemment.
+- L'historique transactionnel run_v2 fourni (décision + résultat broker) doit aussi être
+  lu explicitement pour identifier le dernier message d'erreur API et vérifier son impact
+  sur l'action suivante.
 
 Ta tâche:
 1) Identifier ce qui manque comme **données de marché (prix)** pour mieux comprendre / valider une hypothèse. Priorité:

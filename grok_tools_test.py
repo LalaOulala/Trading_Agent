@@ -32,10 +32,18 @@ from xai_sdk.chat import system, user
 from xai_sdk.tools import x_search
 
 from trading_pipeline.collectors.tavily_web import TavilyWebCollector
+from trading_pipeline.context import (
+    DEFAULT_RUN_V2_TERMINAL_HISTORY_FILE,
+    DEFAULT_RUN_V2_TRADE_HISTORY_FILE,
+    load_recent_runtime_events,
+    load_recent_trade_events,
+)
 
 
 DEFAULT_MODEL = "grok-4-1-fast-reasoning-latest"
 DEFAULT_REASONING_EFFORT = "high"
+DEFAULT_TERMINAL_HISTORY_LIMIT = 15
+DEFAULT_TRADE_HISTORY_LIMIT = 15
 MAX_TURNS = 2  # garde-fou coûts: x_search + rédaction
 MAX_TOKENS = 1600  # garde-fou coûts: limite la taille de la réponse
 X_LOOKBACK_HOURS = 24
@@ -146,6 +154,26 @@ def _normalize_reasoning_effort(raw: str | None) -> str:
     if value not in {"low", "high"}:
         return DEFAULT_REASONING_EFFORT
     return value
+
+
+def _load_terminal_history(
+    *,
+    history_file: Path,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    return load_recent_runtime_events(history_file, limit=limit)
+
+
+def _load_trade_history(
+    *,
+    history_file: Path,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    return load_recent_trade_events(history_file, limit=limit)
 
 
 def _load_env(script_dir: Path) -> None:
@@ -315,6 +343,30 @@ def main() -> None:
             "Effort de raisonnement xAI (défaut: REPORT_REASONING_EFFORT env, sinon high)."
         ),
     )
+    parser.add_argument(
+        "--terminal-history-file",
+        type=Path,
+        default=DEFAULT_RUN_V2_TERMINAL_HISTORY_FILE,
+        help="Fichier JSONL des événements terminal run_v2.",
+    )
+    parser.add_argument(
+        "--terminal-history-limit",
+        type=int,
+        default=DEFAULT_TERMINAL_HISTORY_LIMIT,
+        help="Nombre d'événements run_v2 à injecter dans le prompt (défaut: 15).",
+    )
+    parser.add_argument(
+        "--trade-history-file",
+        type=Path,
+        default=DEFAULT_RUN_V2_TRADE_HISTORY_FILE,
+        help="Fichier JSONL des événements transactionnels run_v2.",
+    )
+    parser.add_argument(
+        "--trade-history-limit",
+        type=int,
+        default=DEFAULT_TRADE_HISTORY_LIMIT,
+        help="Nombre d'événements transactionnels run_v2 à injecter dans le prompt (défaut: 15).",
+    )
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -364,6 +416,14 @@ def main() -> None:
             f"Collecte web Tavily impossible ({type(exc).__name__}: {exc})"
         ) from exc
     financial_snapshot = _load_financial_snapshot()
+    terminal_history = _load_terminal_history(
+        history_file=args.terminal_history_file,
+        limit=args.terminal_history_limit,
+    )
+    trade_history = _load_trade_history(
+        history_file=args.trade_history_file,
+        limit=args.trade_history_limit,
+    )
 
     user_prompt = f"""
 {presentation_prompt}
@@ -376,6 +436,17 @@ Informations utiles (pour remplir le titre et cadrer le périmètre) :
 
 Snapshot financier (toujours à prendre en compte dans la réflexion) :
 {json.dumps(financial_snapshot, indent=2, ensure_ascii=False)}
+
+Historique terminal run_v2 (événements récents incluant erreurs API Alpaca) :
+{json.dumps(terminal_history, indent=2, ensure_ascii=False)}
+
+Historique transactionnel run_v2 (décisions + statuts broker) :
+{json.dumps(trade_history, indent=2, ensure_ascii=False)}
+
+Instruction opérationnelle obligatoire :
+- Vérifie explicitement le dernier message d'erreur API broker si présent.
+- Indique s'il impacte l'action suivante.
+- Évite de proposer une action qui répète un blocage déjà constaté.
 
 Données web (Tavily, base factuelle prioritaire) :
 {tavily_context}
@@ -426,6 +497,12 @@ Données web (Tavily, base factuelle prioritaire) :
                 f"Tavily config: topic={TAVILY_TOPIC}, depth={TAVILY_SEARCH_DEPTH}, "
                 f"time_range={TAVILY_TIME_RANGE}, max_results={TAVILY_MAX_RESULTS}",
                 f"Financial snapshot: {financial_snapshot}",
+                f"Terminal history file: {args.terminal_history_file}",
+                f"Terminal history limit: {args.terminal_history_limit}",
+                f"Terminal history loaded: {len(terminal_history)} events",
+                f"Trade history file: {args.trade_history_file}",
+                f"Trade history limit: {args.trade_history_limit}",
+                f"Trade history loaded: {len(trade_history)} events",
                 f"Tavily notes: {tavily_notes}",
                 f"Tavily URLs: {tavily_urls}",
                 f"Usage: {response.usage}",
