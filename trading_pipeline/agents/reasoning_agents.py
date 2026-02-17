@@ -12,6 +12,7 @@ from trading_pipeline.models import (
     FreshMarketSnapshot,
     PreAnalysis,
 )
+from trading_pipeline.xai_compat import create_chat_with_reasoning_fallback
 
 
 Confidence = Literal["low", "medium", "high"]
@@ -104,10 +105,11 @@ class _ReasoningAgentBase:
         from xai_sdk.chat import system, user
 
         client = Client(api_key=self.api_key)
-        chat = client.chat.create(
+        chat = create_chat_with_reasoning_fallback(
+            client=client,
             model=self.model,
-            max_tokens=self.max_tokens,
             reasoning_effort=_normalize_reasoning_effort(self.reasoning_effort),
+            max_tokens=self.max_tokens,
         )
         chat.append(system(system_prompt))
         chat.append(user(user_prompt))

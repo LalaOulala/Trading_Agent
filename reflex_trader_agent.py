@@ -35,6 +35,7 @@ from trading_pipeline.context import (
     load_recent_runtime_events,
     load_recent_trade_events,
 )
+from trading_pipeline.xai_compat import create_chat_with_reasoning_fallback
 
 
 DEFAULT_REASONING_MODEL = "grok-4-1-fast-reasoning-latest"
@@ -595,10 +596,11 @@ Analyse des derniers jours :
 
     reasoning_effort = _normalize_reasoning_effort(args.reasoning_effort)
     client = Client(api_key=api_key)
-    chat = client.chat.create(
+    chat = create_chat_with_reasoning_fallback(
+        client=client,
         model=args.model,
-        max_tokens=args.max_tokens,
         reasoning_effort=reasoning_effort,
+        max_tokens=args.max_tokens,
     )
     chat.append(system(redaction_prompt))
     chat.append(user(user_prompt))
