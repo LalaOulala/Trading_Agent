@@ -35,7 +35,11 @@ from trading_pipeline.context import (
     load_recent_runtime_events,
     load_recent_trade_events,
 )
-from trading_pipeline.xai_compat import create_chat_with_reasoning_fallback
+from trading_pipeline.xai_compat import (
+    create_chat_with_reasoning_fallback,
+    format_reasoning_compat_error,
+    register_model_without_reasoning_effort,
+)
 
 
 DEFAULT_REASONING_MODEL = "grok-4-1-fast-reasoning-latest"
@@ -604,7 +608,28 @@ Analyse des derniers jours :
     )
     chat.append(system(redaction_prompt))
     chat.append(user(user_prompt))
-    response = chat.sample()
+    try:
+        response = chat.sample()
+    except Exception as exc:
+        if register_model_without_reasoning_effort(model=args.model, exc=exc):
+            chat = create_chat_with_reasoning_fallback(
+                client=client,
+                model=args.model,
+                reasoning_effort=reasoning_effort,
+                max_tokens=args.max_tokens,
+            )
+            chat.append(system(redaction_prompt))
+            chat.append(user(user_prompt))
+            try:
+                response = chat.sample()
+            except Exception as retry_exc:
+                raise RuntimeError(
+                    format_reasoning_compat_error(model=args.model, exc=retry_exc)
+                ) from retry_exc
+        else:
+            raise RuntimeError(
+                format_reasoning_compat_error(model=args.model, exc=exc)
+            ) from exc
 
     raw_content = (response.content or "").strip()
 

@@ -38,7 +38,11 @@ from trading_pipeline.context import (
     load_recent_runtime_events,
     load_recent_trade_events,
 )
-from trading_pipeline.xai_compat import create_chat_with_reasoning_fallback
+from trading_pipeline.xai_compat import (
+    create_chat_with_reasoning_fallback,
+    format_reasoning_compat_error,
+    register_model_without_reasoning_effort,
+)
 
 
 DEFAULT_MODEL = "grok-4-1-fast-reasoning-latest"
@@ -467,8 +471,34 @@ Données web (Tavily, base factuelle prioritaire) :
     )
     chat.append(system(redaction_prompt))
     chat.append(user(user_prompt))
-
-    response = chat.sample()
+    try:
+        response = chat.sample()
+    except Exception as exc:
+        if register_model_without_reasoning_effort(model=model, exc=exc):
+            chat = create_chat_with_reasoning_fallback(
+                client=client,
+                model=model,
+                reasoning_effort=reasoning_effort,
+                tools=[
+                    x_search(from_date=from_date, to_date=now),
+                ],
+                tool_choice="required",
+                parallel_tool_calls=False,
+                max_turns=MAX_TURNS,
+                max_tokens=MAX_TOKENS,
+            )
+            chat.append(system(redaction_prompt))
+            chat.append(user(user_prompt))
+            try:
+                response = chat.sample()
+            except Exception as retry_exc:
+                raise RuntimeError(
+                    format_reasoning_compat_error(model=model, exc=retry_exc)
+                ) from retry_exc
+        else:
+            raise RuntimeError(
+                format_reasoning_compat_error(model=model, exc=exc)
+            ) from exc
 
     responses_root_dir = script_dir / "responses"
     responses_root_dir.mkdir(parents=True, exist_ok=True)

@@ -12,7 +12,11 @@ from trading_pipeline.models import (
     FreshMarketSnapshot,
     PreAnalysis,
 )
-from trading_pipeline.xai_compat import create_chat_with_reasoning_fallback
+from trading_pipeline.xai_compat import (
+    create_chat_with_reasoning_fallback,
+    format_reasoning_compat_error,
+    register_model_without_reasoning_effort,
+)
 
 
 Confidence = Literal["low", "medium", "high"]
@@ -105,15 +109,29 @@ class _ReasoningAgentBase:
         from xai_sdk.chat import system, user
 
         client = Client(api_key=self.api_key)
+        reasoning_effort = _normalize_reasoning_effort(self.reasoning_effort)
         chat = create_chat_with_reasoning_fallback(
             client=client,
             model=self.model,
-            reasoning_effort=_normalize_reasoning_effort(self.reasoning_effort),
+            reasoning_effort=reasoning_effort,
             max_tokens=self.max_tokens,
         )
         chat.append(system(system_prompt))
         chat.append(user(user_prompt))
-        response = chat.sample()
+        try:
+            response = chat.sample()
+        except Exception as exc:
+            if not register_model_without_reasoning_effort(model=self.model, exc=exc):
+                raise
+            chat = create_chat_with_reasoning_fallback(
+                client=client,
+                model=self.model,
+                reasoning_effort=reasoning_effort,
+                max_tokens=self.max_tokens,
+            )
+            chat.append(system(system_prompt))
+            chat.append(user(user_prompt))
+            response = chat.sample()
         return (response.content or "").strip()
 
     def _load_histories(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
@@ -259,7 +277,7 @@ Tu peux proposer des requêtes Tavily de suivi (follow-up) si cela améliore la 
                 "mode": "fallback",
                 "prompt": user_prompt,
                 "response": response_text,
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": format_reasoning_compat_error(model=self.model, exc=exc),
             }
             return fallback
 
@@ -355,7 +373,7 @@ Si une contrainte opérationnelle est détectée, limite les symboles exposés a
                 "mode": "fallback",
                 "prompt": user_prompt,
                 "response": response_text,
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": format_reasoning_compat_error(model=self.model, exc=exc),
             }
             return fallback
 
@@ -546,6 +564,6 @@ Obligation:
                 "mode": "fallback",
                 "prompt": user_prompt,
                 "response": response_text,
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": format_reasoning_compat_error(model=self.model, exc=exc),
             }
             return fallback

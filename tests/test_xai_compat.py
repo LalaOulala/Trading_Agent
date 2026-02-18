@@ -90,6 +90,25 @@ class XaiCompatTests(unittest.TestCase):
 
         self.assertEqual(len(chat_api.calls), 1)
 
+    def test_register_model_without_reasoning_effort_marks_model(self) -> None:
+        error = RuntimeError("Model grok-x does not support parameter reasoningEffort.")
+
+        is_registered = xai_compat.register_model_without_reasoning_effort(
+            model="grok-x",
+            exc=error,
+        )
+
+        self.assertTrue(is_registered)
+        self.assertIn("grok-x", xai_compat._MODELS_WITHOUT_REASONING_EFFORT)
+
+    def test_format_reasoning_compat_error_hides_effort_parameter(self) -> None:
+        error = RuntimeError("Model grok-x does not support parameter reasoningEffort.")
+
+        message = xai_compat.format_reasoning_compat_error(model="grok-x", exc=error)
+
+        self.assertIn("mode reasoning", message.lower())
+        self.assertNotIn("reasoningeffort", message.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
